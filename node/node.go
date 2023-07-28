@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/tendermint/tendermint/mempool/txTimestamp/poH"
 	"net"
 	"net/http"
 	"strings"
@@ -98,6 +99,7 @@ type Provider func(*cfg.Config, log.Logger) (*Node, error)
 // PrivValidator, ClientCreator, GenesisDoc, and DBProvider.
 // It implements NodeProvider.
 func DefaultNewNode(config *cfg.Config, logger log.Logger) (*Node, error) {
+
 	nodeKey, err := p2p.LoadOrGenNodeKey(config.NodeKeyFile())
 	if err != nil {
 		return nil, fmt.Errorf("failed to load or gen node key %s: %w", config.NodeKeyFile(), err)
@@ -898,7 +900,8 @@ func NewNode(config *cfg.Config,
 			logger.Error("pprof server error", "err", http.ListenAndServe(config.RPC.PprofListenAddress, nil))
 		}()
 	}
-
+	ch := make(chan types.TxTimestamp)
+	poH.NewPoHGenerator(0, ch)
 	node := &Node{
 		config:        config,
 		genesisDoc:    genDoc,
