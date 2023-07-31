@@ -1,0 +1,21 @@
+syntax = "proto3";
+package tendermint.types;
+
+option go_package = "github.com/tendermint/tendermint/proto/tendermint/types";
+
+import "tendermint/types/txTimestamp.proto";
+import "tendermint/crypto/proof.proto";
+
+message PoHBlock {
+  int64 height = 1;
+  repeated PoHTimestamp poHTimestamps = 2;
+  bytes signature = 3;
+}
+
+message PoHBlockPart {
+  int64 height = 1;
+  uint32 total = 2;
+  uint32 index = 3;
+  bytes bytes = 4;
+  tendermint.crypto.Proof proof = 5;
+}
