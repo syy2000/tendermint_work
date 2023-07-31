@@ -17,5 +17,13 @@ func (t1 *PoHTimestamp) GetTimestamp() int64 {
 }
 
 type Seed struct {
-	seed []byte
+	Seed   []byte
+	Height int64
+	Round  int64
+}
+
+type TxWithTimestamp interface {
+	GetTx() []byte
+	SetTimestamp(t TxTimestamp)
+	GetTimestamp() TxTimestamp
 }

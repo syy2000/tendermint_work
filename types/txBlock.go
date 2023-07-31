@@ -5,7 +5,9 @@ type TxBlock interface {
 }
 
 type PoHBlock struct {
-	//TODO
+	Height        int64
+	PoHTimestamps []*PoHTimestamp
+	Signature     []byte
 }
 
 func (b *PoHBlock) BaseValidate() bool {
