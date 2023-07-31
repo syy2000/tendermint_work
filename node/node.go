@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/tendermint/tendermint/mempool/txTimestamp/poH"
 	"net"
 	"net/http"
 	"strings"
@@ -900,8 +899,6 @@ func NewNode(config *cfg.Config,
 			logger.Error("pprof server error", "err", http.ListenAndServe(config.RPC.PprofListenAddress, nil))
 		}()
 	}
-	ch := make(chan types.TxTimestamp)
-	poH.NewPoHGenerator(0, ch)
 	node := &Node{
 		config:        config,
 		genesisDoc:    genDoc,
