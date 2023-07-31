@@ -19,7 +19,13 @@ type (
 	// Tx is an arbitrary byte array.
 	// NOTE: Tx has no types at this level, so when wire encoded it's just length-prefixed.
 	// Might we want types here ?
-	Tx []byte
+	//modified by syy
+	//Tx []byte
+	Tx struct {
+		txId        int64
+		txOp        []string
+		txObAndAttr []string
+	}
 
 	// TxKey is the fixed length array key used as an index.
 	TxKey [TxKeySize]byte
@@ -37,6 +43,20 @@ func (tx Tx) Key() TxKey {
 // String returns the hex-encoded transaction as a string.
 func (tx Tx) String() string {
 	return fmt.Sprintf("Tx{%X}", []byte(tx))
+}
+
+// modified by syy
+func (tx Tx) TxId() int64 {
+	return tx.txId
+}
+func (tx Tx) TxOp() []string {
+	return tx.txOp
+}
+func (tx Tx) TxObAndAttr() []string {
+	return tx.txObAndAttr
+}
+func (tx Tx) SetTxId(blockId int64) {
+	tx.txId = blockId
 }
 
 // Txs is a slice of Tx.
