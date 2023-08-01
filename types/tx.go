@@ -19,7 +19,10 @@ type (
 	// Tx is an arbitrary byte array.
 	// NOTE: Tx has no types at this level, so when wire encoded it's just length-prefixed.
 	// Might we want types here ?
-	Tx []byte
+	Tx     []byte
+	txtest struct {
+		txid int64
+	}
 
 	// TxKey is the fixed length array key used as an index.
 	TxKey [TxKeySize]byte
