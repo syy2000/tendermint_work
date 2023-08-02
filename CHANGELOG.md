@@ -18,10 +18,8 @@ guidelines](./UPGRADING.md#v03424) for more details.
 ### BUG FIXES
 
 - `[rpc]` [\#9692](https://github.com/tendermint/tendermint/issues/9692) Remove
-  `Cache-Control` header response from `/check_tx` endpoint (@JayT106)
-
+  `Cache-Co123
 ## v0.34.23
-
 *Nov 9, 2022*
 
 This release introduces some new Prometheus metrics to help in determining what
