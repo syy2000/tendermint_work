@@ -129,7 +129,7 @@ func (app *Application) InitChain(req abci.RequestInitChain) abci.ResponseInitCh
 
 // CheckTx implements ABCI.
 func (app *Application) CheckTx(req abci.RequestCheckTx) abci.ResponseCheckTx {
-	_, _, err := parseTx(req.Tx)
+	_, _, err := parseTx(req.)
 	if err != nil {
 		return abci.ResponseCheckTx{
 			Code: code.CodeTypeEncodingError,
