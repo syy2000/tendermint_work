@@ -28,7 +28,7 @@ type Reactor struct {
 	config  *cfg.MempoolConfig
 	mempool *CListMempool
 	ids     *mempoolIDs
-	txTimestamp.TxState
+	TxState txTimestamp.TxState
 }
 
 type mempoolIDs struct {
