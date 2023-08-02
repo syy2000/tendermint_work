@@ -11,6 +11,14 @@ import (
 )
 
 const (
+	TxBlockPartChannel = byte(0x80)
+
+	TxBlockPartMaxMsgSize = 1048576 // 1MB; NOTE/TODO: keep in sync with types.PartSet sizes.
+
+	TxBlockChanSize             = 1000
+	TxBlockPartSizeBytes uint32 = 65536
+)
+const (
 	MempoolChannel = byte(0x30)
 
 	// PeerCatchupSleepIntervalMS defines how much time to sleep if a peer is behind

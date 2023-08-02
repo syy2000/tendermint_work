@@ -10,6 +10,7 @@ message PoHBlock {
   int64 height = 1;
   repeated PoHTimestamp poHTimestamps = 2;
   bytes signature = 3;
+  bytes address = 4;
 }
 
 message PoHBlockPart {

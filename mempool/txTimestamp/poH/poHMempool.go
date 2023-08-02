@@ -43,7 +43,7 @@ func (m *PoHMempool) GetCreateBlockChan() chan struct{} {
 	return m.CreateBlockChan
 }
 
-func (m *PoHMempool) SetSeed(seed types.Seed) {
+func (m *PoHMempool) SetSeed(seed *types.Seed) {
 	m.mtx.Lock()
 	defer m.mtx.Unlock()
 	m.Height = seed.Height
@@ -61,13 +61,14 @@ func (m *PoHMempool) AddTimestamp(t types.TxTimestamp) {
 }
 
 // TODO 目前获取是固定大小的
-func (m *PoHMempool) GetTimestamps() []types.TxTimestamp {
+func (m *PoHMempool) GetTimestamps() []*types.PoHTimestamp {
 	l := TxNumOneBlock
-	res := make([]types.TxTimestamp, l)
+	res := make([]*types.PoHTimestamp, l)
 
 	for i := 0; i < l; i++ {
 		t := <-m.TxTimestampChan
-		res[i] = t
+		temp := t.(*types.PoHTimestamp)
+		res[i] = temp
 	}
 	atomic.AddInt64(&m.txNum, -int64(l))
 	atomic.AddInt64(&m.Height, 1)

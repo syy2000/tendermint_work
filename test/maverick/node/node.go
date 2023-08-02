@@ -1355,6 +1355,7 @@ func makeNodeInfo(
 			mempl.MempoolChannel,
 			evidence.EvidenceChannel,
 			statesync.SnapshotChannel, statesync.ChunkChannel,
+			mempl.TxBlockPartChannel,
 		},
 		Moniker: config.Moniker,
 		Other: p2p.DefaultNodeInfoOther{

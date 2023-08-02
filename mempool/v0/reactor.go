@@ -3,6 +3,8 @@ package v0
 import (
 	"errors"
 	"fmt"
+	"github.com/tendermint/tendermint/mempool/txTimestamp"
+	"github.com/tendermint/tendermint/mempool/txTimestamp/poH"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
@@ -14,6 +16,7 @@ import (
 	"github.com/tendermint/tendermint/mempool"
 	"github.com/tendermint/tendermint/p2p"
 	protomem "github.com/tendermint/tendermint/proto/tendermint/mempool"
+	tmproto "github.com/tendermint/tendermint/proto/tendermint/types"
 	"github.com/tendermint/tendermint/types"
 )
 
@@ -25,6 +28,7 @@ type Reactor struct {
 	config  *cfg.MempoolConfig
 	mempool *CListMempool
 	ids     *mempoolIDs
+	txTimestamp.TxState
 }
 
 type mempoolIDs struct {
@@ -118,6 +122,12 @@ func (memR *Reactor) OnStart() error {
 	if !memR.config.Broadcast {
 		memR.Logger.Info("Tx broadcasting is disabled")
 	}
+	if memR.TxState != nil {
+		switch memR.TxState.(type) {
+		case *poH.PoHTxState:
+			go memR.handleBroadcastPoHStateRoutine()
+		}
+	}
 	return nil
 }
 
@@ -137,6 +147,13 @@ func (memR *Reactor) GetChannels() []*p2p.ChannelDescriptor {
 			Priority:            5,
 			RecvMessageCapacity: batchMsg.Size(),
 			MessageType:         &protomem.Message{},
+		}, {
+			ID:                  mempool.TxBlockPartChannel,
+			Priority:            7,
+			SendQueueCapacity:   500,
+			RecvBufferCapacity:  50 * 4096,
+			RecvMessageCapacity: mempool.TxBlockPartMaxMsgSize,
+			MessageType:         &tmproto.PoHBlockPart{},
 		},
 	}
 }
@@ -180,6 +197,14 @@ func (memR *Reactor) ReceiveEnvelope(e p2p.Envelope) {
 			} else if err != nil {
 				memR.Logger.Info("Could not check tx", "tx", ntx.String(), "err", err)
 			}
+		}
+	case *tmproto.PoHBlockPart:
+		p := types.NewPoHBlockPartFromProto(msg)
+		if memR.TxState != nil {
+			memR.TxState.AddMessage(&types.TxMessage{
+				e.Src.ID(),
+				p,
+			})
 		}
 	default:
 		memR.Logger.Error("unknown message type", "src", e.Src, "chId", e.ChannelID, "msg", e.Message)
@@ -291,4 +316,28 @@ type TxsMessage struct {
 // String returns a string representation of the TxsMessage.
 func (m *TxsMessage) String() string {
 	return fmt.Sprintf("[TxsMessage %v]", m.Txs)
+}
+
+func (memR *Reactor) handleBroadcastPoHStateRoutine() {
+	s := memR.TxState.(*poH.PoHTxState)
+
+	for {
+		select {
+		case ps := <-s.OutPoHBlockPartSetChan:
+			total := ps.Total()
+			for i := uint32(0); i < total; i++ {
+				go func(j int) {
+					p := ps.GetPart(j)
+					memR.broadcastPoHBlockPart(p)
+				}(int(i))
+			}
+		}
+	}
+}
+
+func (memR *Reactor) broadcastPoHBlockPart(p *types.PoHBlockPart) {
+	memR.Switch.BroadcastEnvelope(p2p.Envelope{
+		ChannelID: mempool.TxBlockPartChannel,
+		Message:   p.ToProto(),
+	})
 }
