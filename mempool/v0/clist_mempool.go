@@ -228,7 +228,7 @@ func (mem *CListMempool) CheckTx(
 
 	//modified by syy
 	//txSize := len(tx)
-	txSize := len(tx.TxOp())
+	txSize := len(tx.TxOp)
 
 	if err := mem.isFull(txSize); err != nil {
 		return err
@@ -410,7 +410,7 @@ func (mem *CListMempool) resCbFirstTime(
 			// Check mempool isn't full again to reduce the chance of exceeding the
 			// limits.
 			//modified by syy
-			if err := mem.isFull(len(tx.TxOp())); err != nil {
+			if err := mem.isFull(len(tx.TxOp)); err != nil {
 				// remove from cache (mempool might have a space later)
 				mem.cache.Remove(tx)
 				mem.logger.Error(err.Error())
@@ -427,8 +427,8 @@ func (mem *CListMempool) resCbFirstTime(
 			}
 			//modified by syy
 			//查找事务依赖表，找到“对象id+属性”的前序依赖
-			for index, txObAndAttr := range tx.TxObAndAttr() {
-				op := tx.TxOp()[index] // 读/写操作
+			for index, txObAndAttr := range tx.TxObAndAttr {
+				op := tx.TxOp[index] // 读/写操作
 				if v, ok := mem.txsConflictMap.Load(txObAndAttr); ok {
 					//arr := strings.Split(v.(string), " ")
 
@@ -439,11 +439,11 @@ func (mem *CListMempool) resCbFirstTime(
 					txArr := conflictMapValue.curTx
 					latestTx := txArr[len(txArr)-1] // 最近操作此项的事务
 					if conflictMapValue.operation == "read" {
-						if op == "read" && latestTx.tx.TxId() != tx.TxId() { // 直接加入，与现有的读并行
+						if op == "read" && latestTx.tx.TxId != tx.TxId { // 直接加入，与现有的读并行
 							conflictMapValue.curTx = append(conflictMapValue.curTx, memTx)
 							mem.txsConflictMap.Store(txObAndAttr, conflictMapValue)
 						} else if op == "write" { // 该操作为写操作，与前面不能并行
-							if latestTx.tx.TxId() == tx.TxId() {
+							if latestTx.tx.TxId == tx.TxId {
 								conflictMapValue.prevTx = conflictMapValue.curTx[:len(conflictMapValue.curTx)-1]
 							} else {
 								conflictMapValue.prevTx = conflictMapValue.curTx
@@ -455,7 +455,7 @@ func (mem *CListMempool) resCbFirstTime(
 							mem.txsConflictMap.Store(txObAndAttr, conflictMapValue)
 						}
 					} else if conflictMapValue.operation == "write" { //上一个操作此对象+属性的是事务的写操作，与此事务不能并行
-						if latestTx.tx.TxId() != tx.TxId() { // 若上一个操作此对象+id的还是该事务，不用修改
+						if latestTx.tx.TxId != tx.TxId { // 若上一个操作此对象+id的还是该事务，不用修改
 							conflictMapValue.prevTx = conflictMapValue.curTx
 							conflictMapValue.curTx = conflictMapValue.curTx[0:0]
 							conflictMapValue.curTx = append(conflictMapValue.curTx, memTx)
@@ -482,7 +482,7 @@ func (mem *CListMempool) resCbFirstTime(
 			}
 			//modified by syy
 			//生成结点的邻接关系
-			for _, txObAndAttr := range tx.TxObAndAttr() {
+			for _, txObAndAttr := range tx.TxObAndAttr {
 				if v, ok := mem.txsConflictMap.Load(txObAndAttr); ok {
 					//arr := strings.Split(v.(string), " ")
 					conflictMapValue := v.(*txsConflictMapValue)
