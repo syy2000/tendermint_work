@@ -1,7 +1,5 @@
 package txgpartition
 
-import "fmt"
-
 const (
 	EdgeWeight = 1
 )
@@ -227,7 +225,6 @@ func SimpleMove(g TxGraph, K int, alpha float64, partitioning map[int]int, color
 				scoreSmaller = colorMap.Score(nodeColor, nodeColor-1, childs, fathers)
 				moveToSmaller = scoreSmaller > 0 || scoreSmaller == 0 && ColorSize[nodeColor] > ColorSize[nodeColor-1]
 			}
-			fmt.Println(n.ID(), scoreBigger, scoreSmaller)
 			var dst int
 			if moveToBigger && moveToSmaller {
 				if scoreSmaller > scoreBigger {
