@@ -69,13 +69,13 @@ t2 := statustable.NewBlockStatusMappingTable(statustable.UseSimpleMap,nil)
 t1 := statustable.NewBlockStatusMappingTable(2,nil)
 t2 := statustable.NewBlockStatusMappingTable(statustable.UseMPTree,nil)
 ```
-创建一个SimpleMap实现的***线程安全的***区块状态映射表：
+创建一个SimpleMap实现的**线程安全的**区块状态映射表：
 ```go
 // 以下两条命令可以创建相同的区块状态映射表
 t1 := statustable.NewBlockStatusMappingTable(3,nil)
 t2 := statustable.NewBlockStatusMappingTable(statustable.UseSafeSimple,nil)
 ```
-<font color="Red">***注意，即使是线程安全的区块状态映射表，clear()方法和hash()方法也是不可以同时调用的。***</font>
+***<font color="Red">注意，即使是线程安全的区块状态映射表，clear()方法和hash()方法也是不可以同时调用的。</font>***
 ### (3) 测试
 
 部分的测试代码可以在main_test.go中找到。
