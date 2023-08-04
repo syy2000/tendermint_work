@@ -41,6 +41,10 @@ import (
 
 ***目前的测试中，在百万级别的数据集上，MPTree的哈希计算速度相对SimpleMap没有显著优势。***
 
+④ UseSafeSimpleMap:
+
+使用`sync.Map`实现的SimpleMap，可以进行并发安全的读写。注意，<font color="Red"> 这并不意味着hash()、clear()、set()三个接口之间可以并发</font>，因为后二者可能导致前者的哈希计算出现错误（脏读、不可重复度、幻读，因为hash并不是sync.Map的内置功能，而是通过使用get遍历表单实现的）。
+
 #### ***options***：可选参数
 
 目前仅提供了一个可选参数，即OnlyUseHashOptions。区块状态映射表使用MPTree实现时，启用该功能，可以对主键计算哈希值后进行存储，以确保数据分布的随机性，降低树的深度，该过程对用户透明。实验中，启用该功能，在万级别数据下，查询与写入速度提升了一倍以上，建议开启此功能。
@@ -48,23 +52,30 @@ import (
 ### (2) 实例
 创建一个OrderedMap实现的区块状态映射表：
 
-```
+```go
 // 以下两条命令可以创建相同的区块状态映射表
 t1 := statustable.NewBlockStatusMappingTable(0,nil)
 t2 := statustable.NewBlockStatusMappingTable(statustable.UseOrderedMap,nil)
 ```
 创建一个SimpleMap实现的区块状态映射表：
-```
+```go
 // 以下两条命令可以创建相同的区块状态映射表
 t1 := statustable.NewBlockStatusMappingTable(1,nil)
 t2 := statustable.NewBlockStatusMappingTable(statustable.UseSimpleMap,nil)
 ```
 创建一个MPTree实现的区块状态映射表：
-```
+```go
 // 以下两条命令可以创建相同的区块状态映射表
 t1 := statustable.NewBlockStatusMappingTable(2,nil)
 t2 := statustable.NewBlockStatusMappingTable(statustable.UseMPTree,nil)
 ```
+创建一个SimpleMap实现的***线程安全的***区块状态映射表：
+```go
+// 以下两条命令可以创建相同的区块状态映射表
+t1 := statustable.NewBlockStatusMappingTable(3,nil)
+t2 := statustable.NewBlockStatusMappingTable(statustable.UseSafeSimple,nil)
+```
+<font color="Red">***注意，即使是线程安全的区块状态映射表，clear()方法和hash()方法也是不可以同时调用的。***</font>
 ### (3) 测试
 
 部分的测试代码可以在main_test.go中找到。

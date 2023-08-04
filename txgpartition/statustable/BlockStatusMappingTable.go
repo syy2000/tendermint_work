@@ -1,11 +1,14 @@
 package statustable
 
-import "fmt"
+import (
+	"fmt"
+)
 
 const (
 	UseOrderedMap int8 = iota
 	UseSimpleMap
 	UseMPTree
+	UseSafeSimpleMap
 )
 
 var OnlyUseHashOptions = []func(Table){MPTUseHash}
@@ -28,6 +31,10 @@ func NewBlockStatusMappingTable(tableType int8, options []func(Table)) *BlockSta
 		u.table = NewSimpleMap()
 	case UseMPTree:
 		u.table = NewMPT()
+	case UseSafeSimpleMap:
+		u.table = NewSafeSimpleMap()
+	default:
+		panic("unknown type of block status mapping table")
 	}
 	for _, op := range options {
 		op(u.table)
