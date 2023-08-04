@@ -37,10 +37,13 @@ type PoHTxState struct {
 	cache           map[p2p.ID]*MessageCache
 	mempool         *PoHMempool
 	gen             *PoHGenerator
-	MessageChan     chan *types.TxMessage
+	// 来自其他节点的消息输入
+	MessageChan chan *types.TxMessage
 
+	// 返回其他来自节点的tx
 	TxWithTimestampChan chan types.TxWithTimestamp
 
+	// 输出到reactor
 	OutPoHBlockPartSetChan chan *types.PoHBlockPartSet
 
 	seed   *types.Seed
@@ -129,28 +132,31 @@ func (s *PoHTxState) SetSeed(seed *types.Seed) bool {
 
 // TODO 错误处理
 func (s *PoHTxState) OnStart() error {
-	for {
-		select {
-		case <-s.Quit():
-			return nil
-		case <-s.mempool.CreateBlockChan:
-			s.handleCreateTxBlock()
-		case mes := <-s.MessageChan:
-			src := mes.Src
-			switch d := mes.Data.(type) {
-			case *types.PoHBlockPart:
-				f, err := s.handleBlockPart(src, d)
-				if err != nil {
-					// TODO 需要细化
+	go func() error {
+		for {
+			select {
+			case <-s.Quit():
+				return nil
+			case <-s.mempool.CreateBlockChan:
+				s.handleCreateTxBlock()
+			case mes := <-s.MessageChan:
+				src := mes.Src
+				switch d := mes.Data.(type) {
+				case *types.PoHBlockPart:
+					f, err := s.handleBlockPart(src, d)
+					if err != nil {
+						// TODO 需要细化
+					}
+					if !f {
+						// TODO 需要细化
+					}
+				default:
+					// TODO 出错
 				}
-				if !f {
-					// TODO 需要细化
-				}
-			default:
-				// TODO 出错
 			}
 		}
-	}
+	}()
+	return nil
 }
 
 func (s *PoHTxState) handleCreateTxBlock() {
@@ -175,6 +181,7 @@ func (s *PoHTxState) handleCreateTxBlock() {
 	ps := types.NewPoHBlockPartSetFromData(bz, BlockPartSizeBytes, pb.Height)
 	s.OutPoHBlockPartSetChan <- ps
 	ps.Total()
+	//TODO 这里是否需要转换为part输出？
 }
 
 func (s *PoHTxState) hasValidator(id p2p.ID) bool {
@@ -242,7 +249,6 @@ func (s *PoHTxState) handleBlockPart(src p2p.ID, p *types.PoHBlockPart) (bool, e
 
 // TODO 验证签名、细化错误、输出
 func (s *PoHTxState) handleBlock(src p2p.ID, b *types.PoHBlock) (bool, error) {
-	// TODO 验证签名
 	if src != p2p.ID(b.Address) {
 		return false, &types.ErrNotEnoughVotingPowerSigned{}
 	}

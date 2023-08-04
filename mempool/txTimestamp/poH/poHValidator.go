@@ -63,6 +63,7 @@ func (v *PoHValidator) Validate(block types.TxBlock) bool {
 	if !f {
 		return false
 	}
+	v.Height++
 	return true
 }
 

@@ -30,10 +30,15 @@ type PoHGenerator struct {
 	LastTickRound int64
 	IntervalRound int64
 
-	mtx         tmsync.RWMutex
+	mtx tmsync.RWMutex
+	// tx输入
 	MessageChan chan types.TxWithTimestamp
-	OutChan     chan types.TxTimestamp
-	TxOutChan   chan types.TxWithTimestamp
+	// 输出到mempool准备，废弃
+	OutChan chan types.TxTimestamp
+	// 打好时间戳的tx输出
+	TxOutChan chan types.TxWithTimestamp
+
+	mempool *PoHMempool
 
 	flag bool
 	quit chan struct{}
@@ -43,15 +48,15 @@ type PoHGenerator struct {
 
 func NewPoHGenerator(
 	intervalRound int64,
-	out chan types.TxTimestamp,
 	log log.Logger,
+	mempool *PoHMempool,
 ) *PoHGenerator {
 	gen := new(PoHGenerator)
 	gen.IntervalRound = intervalRound
 
 	gen.MessageChan = make(chan types.TxWithTimestamp, MessageChanMaxNum)
 	gen.TxOutChan = make(chan types.TxWithTimestamp, MessageChanMaxNum)
-	gen.OutChan = out
+	gen.mempool = mempool
 
 	gen.PoHRound = nil
 	gen.flag = false
@@ -121,8 +126,11 @@ func (gen *PoHGenerator) generateNextRoundAndOutput() {
 	}
 	gen.generateNextRound(mes)
 	if txOutFlag || tickFlag {
+		gen.LastTickRound = gen.PoHRound.Round
+
 		res := gen.getPoHMessage()
-		gen.OutChan <- res
+		//gen.OutChan <- res
+		gen.mempool.AddTimestamp(res)
 		if txOutFlag {
 			tx.SetTimestamp(res)
 			gen.TxOutChan <- tx

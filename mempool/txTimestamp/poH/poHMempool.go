@@ -9,12 +9,15 @@ import (
 
 const (
 	TxNumOneBlock      = 5000
+	TxTimestampChanMax = 100000
 	CreateBlockChanMax = 100
 )
 
 type PoHMempool struct {
+	// 输入
 	TxTimestampChan chan types.TxTimestamp
 
+	// 可以打包的信号
 	CreateBlockChan chan struct{}
 	txNum           int64
 	Height          int64
@@ -26,7 +29,7 @@ type PoHMempool struct {
 func NewPoHMempool(
 	logger log.Logger) *PoHMempool {
 	m := new(PoHMempool)
-	m.TxTimestampChan = make(chan types.TxTimestamp, TxNumOneBlock)
+	m.TxTimestampChan = make(chan types.TxTimestamp, TxTimestampChanMax)
 	m.CreateBlockChan = make(chan struct{}, CreateBlockChanMax)
 	m.txNum = 0
 	m.Height = 0
