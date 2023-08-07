@@ -4,6 +4,12 @@ const (
 	EdgeWeight = 1
 )
 
+/*
+partitioning : map[int]int : 事务id -> 事务颜色
+colorMap : *ColorMap : 事务颜色的邻接矩阵
+txMap : [][]TxNode : 事务颜色 -> 属于该颜色的事务集合
+*/
+
 func Init_Partitioning(g TxGraph, K int) (map[int]int, *ColorMap, [][]TxNode) {
 	var (
 		partitioning    = make(map[int]int)
@@ -197,24 +203,27 @@ func SimpleMove(g TxGraph, K int, alpha float64, partitioning map[int]int, color
 			if float64(ColorSize[nodeColor]) < Lmin {
 				continue
 			}
-			fathers, childs := []int{}, []int{}
-			moveToBigger := nodeColor+1 < len(txMap) && float64(ColorSize[nodeColor+1]) < Lmax
-			moveToSmaller := nodeColor-1 >= g.BlockNodeNum() && float64(ColorSize[nodeColor-1]) < Lmax
-			for _, father := range g.QueryFather(n) {
-				if fatherColor := partitioning[g.NodeIndex(father)]; fatherColor == nodeColor {
+			FatherSet, ChildSet := g.QueryFather(n), g.QueryNodeChild(n)
+			fathers, childs := make([]int, len(FatherSet)), make([]int, len(ChildSet))
+			moveToBigger := nodeColor+1 < len(txMap) && float64(ColorSize[nodeColor+1]) < Lmax-1.0
+			moveToSmaller := nodeColor-1 >= g.BlockNodeNum() && float64(ColorSize[nodeColor-1]) < Lmax-1.0
+			j := 0
+			for _, father := range FatherSet {
+				fatherColor := partitioning[g.NodeIndex(father)]
+				if fatherColor == nodeColor {
 					moveToSmaller = false
-					break
-				} else {
-					fathers = append(fathers, fatherColor)
 				}
+				fathers[j] = fatherColor
+				j++
 			}
-			for _, child := range g.QueryNodeChild(n) {
-				if childColor := partitioning[g.NodeIndex(child)]; childColor == nodeColor {
+			j = 0
+			for _, child := range ChildSet {
+				childColor := partitioning[g.NodeIndex(child)]
+				if childColor == nodeColor {
 					moveToBigger = false
-					break
-				} else {
-					childs = append(childs, childColor)
 				}
+				childs[j] = childColor
+				j++
 			}
 			var scoreBigger, scoreSmaller = 0, 0
 			if moveToBigger {
@@ -241,6 +250,88 @@ func SimpleMove(g TxGraph, K int, alpha float64, partitioning map[int]int, color
 			}
 			if dst > 0 {
 				moveTo(n, dst, childs, fathers)
+			}
+		}
+	}
+	out := make([][]TxNode, len(txMap))
+	for _, l1 := range txMap {
+		for _, n := range l1 {
+			color := partitioning[g.NodeIndex(n)]
+			out[color] = append(out[color], n)
+		}
+	}
+	return partitioning, colorMap, out
+}
+
+func AdvancedMove(g TxGraph, K int, alpha float64, partitioning map[int]int, colorMap *ColorMap, txMap [][]TxNode) (map[int]int, *ColorMap, [][]TxNode) {
+	var (
+		avaSize = float64(g.TxNodeNum()) / float64(K)
+		Lmax    = (1.0 + alpha) * avaSize
+		Lmin    = (1.0 - alpha) * avaSize
+	)
+	ColorSize := make([]int, len(txMap))
+	for i := 0; i < len(txMap); i++ {
+		ColorSize[i] = len(txMap[i])
+	}
+	moveTo := func(n TxNode, dst int, childs, fathers []int) {
+		txID := g.NodeIndex(n)
+		nodeColor := partitioning[txID]
+		colorMap.ChangeTo(nodeColor, dst, childs, fathers)
+		partitioning[txID] = dst
+		ColorSize[nodeColor]--
+		ColorSize[dst]++
+	}
+	calculateRangeAndColor := func(n TxNode) (int, int, []int, []int) {
+		A, B := g.BlockNodeNum(), colorMap.size-1
+		fathers, childs := g.QueryFather(n), g.QueryNodeChild(n)
+		fatherColors, childColors := make([]int, len(fathers)), make([]int, len(childs))
+		i := 0
+		for _, father := range fathers {
+			fathercolor := partitioning[father.ID()]
+			if fathercolor > A {
+				A = fathercolor
+			}
+			fatherColors[i] = fathercolor
+			i++
+		}
+		i = 0
+		for _, child := range g.QueryNodeChild(n) {
+			childcolor := partitioning[child.ID()]
+			if childcolor < B {
+				B = childcolor
+			}
+			childColors[i] = childcolor
+			i++
+		}
+		return A, B, fatherColors, childColors
+	}
+	for i := len(txMap) - 1; i >= 0; i-- {
+		for _, n := range txMap[i] {
+			if g.IsBlockNode(n) {
+				continue
+			}
+			nodeID := g.NodeIndex(n)
+			nodeColor := partitioning[nodeID]
+			colorSizeNow := ColorSize[nodeColor]
+			if float64(colorSizeNow)-1.0 < Lmin {
+				continue
+			}
+			A, B, fatherColor, childColor := calculateRangeAndColor(n)
+			maxp, maxscore, delta := -1, 0, 0
+			for j := A; j < B; j++ {
+				if j == nodeColor || float64(ColorSize[j])+1.0 > Lmax {
+					continue
+				}
+				if s := colorMap.Score(nodeColor, j, childColor, fatherColor); s >= maxscore {
+					if s > maxscore || colorSizeNow-ColorSize[j] > delta {
+						maxp = j
+						maxscore = s
+						delta = colorSizeNow - ColorSize[j]
+					}
+				}
+			}
+			if maxp != -1 && maxscore >= 0 {
+				moveTo(n, maxp, childColor, fatherColor)
 			}
 		}
 	}

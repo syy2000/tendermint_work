@@ -26,7 +26,14 @@ func TestSquare(t *testing.T) {
 
 	// Simple Move
 	start = time.Now()
-	_, cm, _ = txgpartition.SimpleMove(s, _split_num, 0.25, partitioning, cm, txMap)
+	partitioning, cm, txMap = txgpartition.SimpleMove(s, _split_num, 0.4, partitioning, cm, txMap)
+	fmt.Println("time used : ", time.Since(start))
+	fmt.Println("numEdges", s.edgeNum, "numBLocks", s.blockNodeNum)
+	fmt.Println("partition quality : ", txgpartition.CalculatePartitioningQualityByColorMap(cm))
+
+	// Advanced Move
+	start = time.Now()
+	_, cm, _ = txgpartition.AdvancedMove(s, _split_num, 0.4, partitioning, cm, txMap)
 	fmt.Println("time used : ", time.Since(start))
 	fmt.Println("numEdges", s.edgeNum, "numBLocks", s.blockNodeNum)
 	fmt.Println("partition quality : ", txgpartition.CalculatePartitioningQualityByColorMap(cm))

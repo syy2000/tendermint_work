@@ -40,19 +40,19 @@ func (c *ColorMap) Score(i, j int, inEdges, outEdges []int) int {
 	for _, outEdge := range outEdges {
 		outEdgeMap[outEdge] = outEdgeMap[outEdge] + 1
 	}
-	for edgeID, edgeAmount := range inEdges {
-		if c.WillResultInEdgeAdd(j, edgeID) {
+	for inEdge, edgeAmount := range inEdges {
+		if c.WillResultInEdgeAdd(j, inEdge) {
 			ScoreAdd++
 		}
-		if c.WillResultInEdgeDec(i, edgeID, edgeAmount) {
+		if c.WillResultInEdgeDec(i, inEdge, edgeAmount) {
 			ScoreDec++
 		}
 	}
-	for edgeID, edgeAmount := range outEdges {
-		if c.WillResultInEdgeAdd(edgeID, j) {
+	for outEdge, edgeAmount := range outEdges {
+		if c.WillResultInEdgeAdd(outEdge, j) {
 			ScoreAdd++
 		}
-		if c.WillResultInEdgeDec(edgeID, i, edgeAmount) {
+		if c.WillResultInEdgeDec(outEdge, i, edgeAmount) {
 			ScoreDec++
 		}
 	}
@@ -60,11 +60,15 @@ func (c *ColorMap) Score(i, j int, inEdges, outEdges []int) int {
 }
 
 func (c *ColorMap) Add(i, j, amount int) {
-	c.adjMatrix[i][j] += amount
+	if i != j {
+		c.adjMatrix[i][j] += amount
+	}
 }
 
 func (c *ColorMap) Sub(i, j, amount int) {
-	c.adjMatrix[i][j] -= amount
+	if i != j {
+		c.adjMatrix[i][j] -= amount
+	}
 }
 
 // move node with inEdges and outEdges from i to j

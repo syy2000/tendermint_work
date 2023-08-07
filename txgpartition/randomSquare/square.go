@@ -46,7 +46,7 @@ func Distance(X, Y *SquareNode) float64 {
 	return math.Sqrt(dx*dx + dy*dy)
 }
 func ThresholdDistance(n int) float64 {
-	return 0.45 * math.Sqrt(math.Log(float64(n))/float64(n))
+	return 0.55 * math.Sqrt(math.Log(float64(n))/float64(n))
 }
 func (n *SquareNode) SetID(id int) {
 	n.id = id
