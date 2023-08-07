@@ -150,6 +150,12 @@ func (app *Application) DeliverTx(req types.RequestDeliverTx) types.ResponseDeli
 }
 
 func (app *Application) CheckTx(req types.RequestCheckTx) types.ResponseCheckTx {
+	//保证输入的是json
+	var jsonData interface{}
+	err := json.Unmarshal([]byte(req.Tx), &jsonData)
+	if err != nil {
+		panic(err)
+	}
 	return types.ResponseCheckTx{Code: code.CodeTypeOK, GasWanted: 1}
 }
 
