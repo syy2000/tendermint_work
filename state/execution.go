@@ -317,7 +317,7 @@ func execBlockOnProxyApp(
 
 	// run txs of block
 	for _, tx := range block.Txs {
-		proxyAppConn.DeliverTxAsync(abci.RequestDeliverTx{Tx: tx})
+		proxyAppConn.DeliverTxAsync(abci.RequestDeliverTx{Tx: tx.ToProto()})
 		if err := proxyAppConn.Error(); err != nil {
 			return nil, err
 		}
@@ -507,7 +507,7 @@ func fireEvents(
 		if err := eventBus.PublishEventTx(types.EventDataTx{TxResult: abci.TxResult{
 			Height: block.Height,
 			Index:  uint32(i),
-			Tx:     tx,
+			Tx:     tx.ToProto(),
 			Result: *(abciResponses.DeliverTxs[i]),
 		}}); err != nil {
 			logger.Error("failed publishing event TX", "err", err)

@@ -6,6 +6,7 @@ import (
 	mempl "github.com/tendermint/tendermint/mempool"
 	mempoolv0 "github.com/tendermint/tendermint/mempool/v0"
 	"github.com/tendermint/tendermint/proxy"
+	"github.com/tendermint/tendermint/types"
 )
 
 var mempool mempl.Mempool
@@ -24,7 +25,9 @@ func init() {
 	mempool = mempoolv0.NewCListMempool(cfg, appConnMem, 0)
 }
 
-func Fuzz(data []byte) int {
+func Fuzz(data types.Tx) int {
+	//func Fuzz(data []byte) int {
+	//Tx转MemTx
 	err := mempool.CheckTx(data, nil, mempl.TxInfo{})
 	if err != nil {
 		return 0

@@ -20,44 +20,107 @@ type (
 	// NOTE: Tx has no types at this level, so when wire encoded it's just length-prefixed.
 	// Might we want types here ?
 	//modified by syy
-	//Tx []byte
 	Tx struct {
-		txId        int64
-		txOp        []string
-		txObAndAttr []string
+		OriginTx   []byte
+		TxTimehash *PoHTimestamp
+	}
+	Value struct {
+		Cid         string
+		DataFeature string
+		DataValue   string
+	}
+	//需要由Tx拆解转化而来，再进而转为MempoolTx
+	MemTx struct {
+		TxId        int64    // primary key
+		TxOp        []string // operation: read write
+		TxObAndAttr []string // dataobject: id-attr
+		TxValue     []Value
+		TxTimehash  *PoHTimestamp
+		OriginTx    Tx
 	}
 
 	// TxKey is the fixed length array key used as an index.
 	TxKey [TxKeySize]byte
 )
 
+func (tx MemTx) SetTxId(BlockId int64) {
+	tx.TxId = BlockId
+}
+
+// func (txValue Value) ToProto() *tmproto.Tx_Value {
+// 	tp := new(tmproto.Tx_Value)
+// 	tp.Cid = txValue.Cid
+// 	tp.DataFeature = txValue.DataFeature
+// 	tp.DataValue = txValue.DataValue
+// 	return tp
+// }
+
+// // ToProto converts Data to protobuf
+// func (tx Tx) ToProto() tmproto.Tx {
+// 	tp := new(tmproto.Tx)
+
+// 	tp.TxId = tx.TxId
+// 	if len(tx.TxOp) > 0 {
+// 		txBzs := make([]string, len(tx.TxOp))
+// 		for i := range tx.TxOp {
+// 			txBzs[i] = tx.TxOp[i]
+// 		}
+// 		tp.TxOp = txBzs
+// 	}
+// 	if len(tx.TxObAndAttr) > 0 {
+// 		txBzs := make([]string, len(tx.TxObAndAttr))
+// 		for i := range tx.TxObAndAttr {
+// 			txBzs[i] = tx.TxObAndAttr[i]
+// 		}
+// 		tp.TxOp = txBzs
+// 	}
+// 	if len(tx.TxValue) > 0 {
+// 		txBzs := make([]*tmproto.Tx_Value, len(tx.TxValue))
+// 		for i := range tx.TxValue {
+// 			txBzs[i] = tx.TxValue[i].ToProto()
+// 		}
+// 		tp.TxValue = txBzs
+// 	}
+// 	tp.TxTimehash = (*tmproto.PoHTimestamp)(tx.TxTimehash)
+// 	return *tp
+// }
+
+func (tx Tx) ToProto() *tmproto.Tx {
+	tp := new(tmproto.Tx)
+	tp.OriginTx = tx.OriginTx
+	tp.TxTimehash = (*tmproto.PoHTimestamp)(tx.TxTimehash)
+	return tp
+}
+
+func NewTxFromProto(protoTx *tmproto.Tx) *Tx {
+	if protoTx == nil {
+		return nil
+	}
+	return &Tx{
+		OriginTx: protoTx.OriginTx,
+		TxTimehash: (*PoHTimestamp)(protoTx.TxTimehash),
+	}
+}
+
 // Hash computes the TMHASH hash of the wire encoded transaction.
 func (tx Tx) Hash() []byte {
-	return tmhash.Sum(tx)
+	return tmhash.Sum(tx.OriginTx)
 }
 
 func (tx Tx) Key() TxKey {
-	return sha256.Sum256(tx)
+	return sha256.Sum256(tx.OriginTx)
 }
 
 // String returns the hex-encoded transaction as a string.
+// modified by syy
 func (tx Tx) String() string {
-	return fmt.Sprintf("Tx{%X}", []byte(tx))
+	return fmt.Sprintf("Tx{%X}", []byte(tx.OriginTx))
 }
 
 // modified by syy
-func (tx Tx) TxId() int64 {
-	return tx.txId
-}
-func (tx Tx) TxOp() []string {
-	return tx.txOp
-}
-func (tx Tx) TxObAndAttr() []string {
-	return tx.txObAndAttr
-}
-func (tx Tx) SetTxId(blockId int64) {
-	tx.txId = blockId
-}
+// func (tx Tx) SetTxId(blockId int64) {
+// 	tx.TxId = blockId
+// }
 
 // Txs is a slice of Tx.
 type Txs []Tx
@@ -77,7 +140,9 @@ func (txs Txs) Hash() []byte {
 // Index returns the index of this transaction in the list, or -1 if not found
 func (txs Txs) Index(tx Tx) int {
 	for i := range txs {
-		if bytes.Equal(txs[i], tx) {
+		//modified by syy
+		if bytes.Equal(txs[i].OriginTx, tx.OriginTx) {
+			//if Equal(txs[i], tx) {
 			return i
 		}
 	}
@@ -149,8 +214,10 @@ func (tp TxProof) ToProto() tmproto.TxProof {
 
 	pbtp := tmproto.TxProof{
 		RootHash: tp.RootHash,
-		Data:     tp.Data,
-		Proof:    pbProof,
+		//Data:     tp.Data,
+		//modified by syy
+		Data:  tp.Data.ToProto(),
+		Proof: pbProof,
 	}
 
 	return pbtp
@@ -161,10 +228,14 @@ func TxProofFromProto(pb tmproto.TxProof) (TxProof, error) {
 	if err != nil {
 		return TxProof{}, err
 	}
-
+	//modified by syy
+	tx := Tx{
+		OriginTx:   pb.Data.OriginTx,
+		TxTimehash: (*PoHTimestamp)(pb.Data.TxTimehash),
+	}
 	pbtp := TxProof{
 		RootHash: pb.RootHash,
-		Data:     pb.Data,
+		Data:     tx,
 		Proof:    *pbProof,
 	}
 
@@ -178,3 +249,11 @@ func ComputeProtoSizeForTxs(txs []Tx) int64 {
 	pdData := data.ToProto()
 	return int64(pdData.Size())
 }
+
+// modified by syy
+// func Equal(a, b Tx) bool {
+// 	if a.TxId == b.TxId {
+// 		return true
+// 	}
+// 	return false
+// }

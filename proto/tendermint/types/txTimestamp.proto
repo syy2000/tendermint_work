@@ -1,0 +1,17 @@
+syntax = "proto3";
+package tendermint.types;
+
+option go_package = "github.com/tendermint/tendermint/proto/tendermint/types";
+
+message PoHTimestamp {
+  int64  round = 1;
+  bytes  input = 2;
+  bytes  message = 3;
+  bytes  out = 4;
+}
+
+message Seed {
+  bytes seed = 1;
+  int64 height = 2;
+  int64 round = 3;
+}

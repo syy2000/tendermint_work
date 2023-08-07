@@ -1,0 +1,10 @@
+syntax = "proto3";
+package tendermint.types;
+
+option go_package = "github.com/tendermint/tendermint/proto/tendermint/types";
+import "tendermint/types/txTimestamp.proto";
+
+message Tx{
+    bytes            originTx     = 1;
+    PoHTimestamp     TxTimehash   = 2;
+}

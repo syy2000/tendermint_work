@@ -14,6 +14,7 @@ import (
 	"github.com/tendermint/tendermint/mempool"
 	"github.com/tendermint/tendermint/p2p"
 	protomem "github.com/tendermint/tendermint/proto/tendermint/mempool"
+	protoTx "github.com/tendermint/tendermint/proto/tendermint/types"
 	"github.com/tendermint/tendermint/types"
 )
 
@@ -124,10 +125,13 @@ func (memR *Reactor) OnStart() error {
 // GetChannels implements Reactor by returning the list of channels for this
 // reactor.
 func (memR *Reactor) GetChannels() []*p2p.ChannelDescriptor {
-	largestTx := make([]byte, memR.config.MaxTxBytes)
+	//largestTx := make([]byte, memR.config.MaxTxBytes)
+	//largestTx := make([]types.Tx, memR.config.MaxTxBytes)
+	largestTx := make([]*protoTx.Tx, memR.config.MaxTxBytes)
 	batchMsg := protomem.Message{
 		Sum: &protomem.Message_Txs{
-			Txs: &protomem.Txs{Txs: [][]byte{largestTx}},
+			//Txs: &protomem.Txs{Txs: [][]byte{largestTx}},
+			Txs: &protomem.Txs{Txs: largestTx},
 		},
 	}
 
@@ -173,7 +177,12 @@ func (memR *Reactor) ReceiveEnvelope(e p2p.Envelope) {
 
 		var err error
 		for _, tx := range protoTxs {
-			ntx := types.Tx(tx)
+			//ntx := types.Tx(tx)
+			ntx := types.Tx{
+				OriginTx:   tx.OriginTx,
+				TxTimehash: (*types.PoHTimestamp)(tx.TxTimehash),
+			}
+			//types.Tx转MemTx
 			err = memR.mempool.CheckTx(ntx, nil, txInfo)
 			if errors.Is(err, mempool.ErrTxInCache) {
 				memR.Logger.Debug("Tx already exists in cache", "tx", ntx.String())
@@ -261,9 +270,12 @@ func (memR *Reactor) broadcastTxRoutine(peer p2p.Peer) {
 		// https://github.com/tendermint/tendermint/issues/5796
 
 		if _, ok := memTx.senders.Load(peerID); !ok {
+			protoMemTxs := []*protoTx.Tx{}
+			protoMemTxs = append(protoMemTxs, memTx.tx.OriginTx.ToProto())
 			success := p2p.SendEnvelopeShim(peer, p2p.Envelope{ //nolint: staticcheck
 				ChannelID: mempool.MempoolChannel,
-				Message:   &protomem.Txs{Txs: [][]byte{memTx.tx}},
+				//Message:   &protomem.Txs{Txs: [][]byte{memTx.tx }},
+				Message: &protomem.Txs{Txs: protoMemTxs},
 			}, memR.Logger)
 			if !success {
 				time.Sleep(mempool.PeerCatchupSleepIntervalMS * time.Millisecond)

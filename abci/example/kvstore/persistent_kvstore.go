@@ -70,10 +70,10 @@ func (app *PersistentKVStoreApplication) SetOption(req types.RequestSetOption) t
 func (app *PersistentKVStoreApplication) DeliverTx(req types.RequestDeliverTx) types.ResponseDeliverTx {
 	// if it starts with "val:", update the validator set
 	// format is "val:pubkey!power"
-	if isValidatorTx(req.Tx) {
+	if isValidatorTx(req.Tx.OriginTx) {
 		// update validators in the merkle tree
 		// and in app.ValUpdates
-		return app.execValidatorTx(req.Tx)
+		return app.execValidatorTx(req.Tx.OriginTx)
 	}
 
 	// otherwise, update the key-value store
