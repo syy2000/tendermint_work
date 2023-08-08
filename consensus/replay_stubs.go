@@ -21,7 +21,7 @@ func (emptyMempool) Size() int        { return 0 }
 func (emptyMempool) SizeBytes() int64 { return 0 }
 
 // modified by syy
-func (emptyMempool) CheckTx(_ types.MemTx, _ func(*abci.Response), _ mempl.TxInfo) error {
+func (emptyMempool) CheckTx(_ []byte, _ func(*abci.Response), _ mempl.TxInfo) error {
 	return nil
 }
 

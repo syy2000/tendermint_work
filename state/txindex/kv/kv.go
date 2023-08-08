@@ -69,7 +69,8 @@ func (txi *TxIndex) AddBatch(b *txindex.Batch) error {
 	defer storeBatch.Close()
 
 	for _, result := range b.Ops {
-		hash := types.Tx(result.Tx).Hash()
+		tempTx := types.NewTxFromProto(result.Tx)
+		hash := tempTx.Hash()
 
 		// index tx by events
 		err := txi.indexEvents(result, hash, storeBatch)
@@ -110,7 +111,8 @@ func (txi *TxIndex) Index(result *abci.TxResult) error {
 	b := txi.store.NewBatch()
 	defer b.Close()
 
-	hash := types.Tx(result.Tx).Hash()
+	tempTx := types.NewTxFromProto(result.Tx)
+	hash := tempTx.Hash()
 
 	if !result.Result.IsOK() {
 		oldResult, err := txi.Get(hash)

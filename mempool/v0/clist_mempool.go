@@ -215,7 +215,7 @@ func (mem *CListMempool) TxsWaitChan() <-chan struct{} {
 //
 // Safe for concurrent use by multiple goroutines.
 func (mem *CListMempool) CheckTx(
-	tx types.MemTx,
+	originTx []byte,
 	cb func(*abci.Response),
 	txInfo mempool.TxInfo,
 ) error {
@@ -224,10 +224,21 @@ func (mem *CListMempool) CheckTx(
 	// use defer to unlock mutex because application (*local client*) might panic
 	defer mem.updateMtx.RUnlock()
 
-	//modified by syy
+	//modified by syy donghao
 	//txSize := len(tx)
-	txSize := len(tx.OriginTx.OriginTx)
 	//txSize := len(tx.ToProto().OriginTx)
+	txSize := len(originTx)
+	mmpOriginTx := types.Tx{
+		OriginTx: originTx,
+		// modified by donghao
+		// TODO : fill TxTimehash ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+		TxTimehash: nil,
+	}
+	tx := types.MemTx{
+		OriginTx: mmpOriginTx,
+		// modified by donghao
+		// TODO : fill Other Values ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+	}
 
 	if err := mem.isFull(txSize); err != nil {
 		return err

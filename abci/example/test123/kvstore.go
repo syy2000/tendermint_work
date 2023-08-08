@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"regexp"
-	
+
 	"github.com/tendermint/tendermint/abci/example/code"
 	"github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/version"
@@ -105,7 +105,7 @@ func (app *Application) Info(req types.RequestInfo) (resInfo types.ResponseInfo)
 // tx is either "key=value" or just arbitrary bytes
 func (app *Application) DeliverTx(req types.RequestDeliverTx) types.ResponseDeliverTx {
 	var data map[string]string
-	err := json.Unmarshal([]byte(req.Tx), &data)
+	err := json.Unmarshal([]byte(req.Tx.OriginTx), &data)
 	if err != nil {
 		panic(err)
 	}
@@ -154,7 +154,7 @@ func (app *Application) DeliverTx(req types.RequestDeliverTx) types.ResponseDeli
 func (app *Application) CheckTx(req types.RequestCheckTx) types.ResponseCheckTx {
 	//保证输入的是json
 	var jsonData interface{}
-	err := json.Unmarshal([]byte(req.Tx), &jsonData)
+	err := json.Unmarshal([]byte(req.Tx.OriginTx), &jsonData)
 	if err != nil {
 		panic(err)
 	}
