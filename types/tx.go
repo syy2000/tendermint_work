@@ -97,7 +97,7 @@ func NewTxFromProto(protoTx *tmproto.Tx) *Tx {
 		return nil
 	}
 	return &Tx{
-		OriginTx: protoTx.OriginTx,
+		OriginTx:   protoTx.OriginTx,
 		TxTimehash: (*PoHTimestamp)(protoTx.TxTimehash),
 	}
 }
@@ -115,6 +115,19 @@ func (tx Tx) Key() TxKey {
 // modified by syy
 func (tx Tx) String() string {
 	return fmt.Sprintf("Tx{%X}", []byte(tx.OriginTx))
+}
+
+func (tx *Tx) GetTx() []byte {
+	return tx.OriginTx
+}
+
+func (tx *Tx) SetTimestamp(t TxTimestamp) {
+	poHTimestamp := t.(*PoHTimestamp)
+	tx.TxTimehash = poHTimestamp
+}
+
+func (tx *Tx) GetTimestamp() TxTimestamp {
+	return tx.TxTimehash
 }
 
 // modified by syy

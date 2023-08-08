@@ -9,7 +9,9 @@ type Generator interface {
 	// 弃用
 	SetOutputChan(out chan types.TxTimestamp)
 	AddTx(tx types.TxWithTimestamp)
+	// 会阻塞线程，优先使用GetTxChan()
 	GetTx() types.TxWithTimestamp
+	GetTxChan() chan types.TxWithTimestamp
 
 	// 状态调整查询
 	GenStart() bool

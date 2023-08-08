@@ -176,6 +176,10 @@ func (gen *PoHGenerator) GetTx() types.TxWithTimestamp {
 	return <-gen.TxOutChan
 }
 
+func (gen *PoHGenerator) GetTxChan() chan types.TxWithTimestamp {
+	return gen.TxOutChan
+}
+
 func (gen *PoHGenerator) GenStart() bool {
 	gen.mtx.Lock()
 	defer gen.mtx.Unlock()

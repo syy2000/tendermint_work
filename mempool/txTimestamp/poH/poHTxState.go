@@ -180,8 +180,8 @@ func (s *PoHTxState) handleCreateTxBlock() {
 	}
 	ps := types.NewPoHBlockPartSetFromData(bz, BlockPartSizeBytes, pb.Height)
 	s.OutPoHBlockPartSetChan <- ps
-	ps.Total()
-	//TODO 这里是否需要转换为part输出？
+	// ps.Total()
+	// 这里是否需要转换为part输出？
 }
 
 func (s *PoHTxState) hasValidator(id p2p.ID) bool {
@@ -263,9 +263,12 @@ func (s *PoHTxState) handleBlock(src p2p.ID, b *types.PoHBlock) (bool, error) {
 	if !flag {
 		return false, &types.TimestampNormalError{}
 	}
-	// TODO 输出，需要改timestamp到tx，或者把Tx结构定下来也可以
-	//for _, tx := range b.PoHTimestamps {
-	//	s.TxWithTimestampChan <- tx
-	//}
+	// 输出，需要改timestamp到tx，或者把Tx结构定下来也可以
+	for _, tx := range b.PoHTimestamps {
+		s.TxWithTimestampChan <- &types.Tx{
+			OriginTx: tx.Message,
+			TxTimehash: tx,
+		}
+	}
 	return true, nil
 }
