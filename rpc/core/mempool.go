@@ -61,7 +61,7 @@ func BroadcastTxSync(ctx *rpctypes.Context, tx types.MemTx) (*ctypes.ResultBroad
 
 // BroadcastTxCommit returns with the responses from CheckTx and DeliverTx.
 // More: https://docs.tendermint.com/v0.34/rpc/#/Tx/broadcast_tx_commit
-func BroadcastTxCommit(ctx *rpctypes.Context, tx types.MemTx) (*ctypes.ResultBroadcastTxCommit, error) {
+func BroadcastTxCommit(ctx *rpctypes.Context, tx types.Tx) (*ctypes.ResultBroadcastTxCommit, error) {
 	subscriber := ctx.RemoteAddr()
 
 	if env.EventBus.NumClients() >= env.Config.MaxSubscriptionClients {
@@ -73,7 +73,7 @@ func BroadcastTxCommit(ctx *rpctypes.Context, tx types.MemTx) (*ctypes.ResultBro
 	// Subscribe to tx being committed in block.
 	subCtx, cancel := context.WithTimeout(ctx.Context(), SubscribeTimeout)
 	defer cancel()
-	q := types.EventQueryTxFor(tx.OriginTx)
+	q := types.EventQueryTxFor(tx)
 	deliverTxSub, err := env.EventBus.Subscribe(subCtx, subscriber, q)
 	if err != nil {
 		err = fmt.Errorf("failed to subscribe to tx: %w", err)
@@ -88,6 +88,7 @@ func BroadcastTxCommit(ctx *rpctypes.Context, tx types.MemTx) (*ctypes.ResultBro
 
 	// Broadcast tx and wait for CheckTx result
 	checkTxResCh := make(chan *abci.Response, 1)
+	// tx转MemTx
 	err = env.Mempool.CheckTx(tx, func(res *abci.Response) {
 		select {
 		case <-ctx.Context().Done():
@@ -107,7 +108,7 @@ func BroadcastTxCommit(ctx *rpctypes.Context, tx types.MemTx) (*ctypes.ResultBro
 			return &ctypes.ResultBroadcastTxCommit{
 				CheckTx:   *checkTxRes,
 				DeliverTx: abci.ResponseDeliverTx{},
-				Hash:      tx.OriginTx.Hash(),
+				Hash:      tx.Hash(),
 			}, nil
 		}
 
@@ -118,7 +119,7 @@ func BroadcastTxCommit(ctx *rpctypes.Context, tx types.MemTx) (*ctypes.ResultBro
 			return &ctypes.ResultBroadcastTxCommit{
 				CheckTx:   *checkTxRes,
 				DeliverTx: deliverTxRes.Result,
-				Hash:      tx.OriginTx.Hash(),
+				Hash:      tx.Hash(),
 				Height:    deliverTxRes.Height,
 			}, nil
 		case <-deliverTxSub.Cancelled():
@@ -133,7 +134,7 @@ func BroadcastTxCommit(ctx *rpctypes.Context, tx types.MemTx) (*ctypes.ResultBro
 			return &ctypes.ResultBroadcastTxCommit{
 				CheckTx:   *checkTxRes,
 				DeliverTx: abci.ResponseDeliverTx{},
-				Hash:      tx.OriginTx.Hash(),
+				Hash:      tx.Hash(),
 			}, err
 		case <-time.After(env.Config.TimeoutBroadcastTxCommit):
 			err = errors.New("timed out waiting for tx to be included in a block")
@@ -141,7 +142,7 @@ func BroadcastTxCommit(ctx *rpctypes.Context, tx types.MemTx) (*ctypes.ResultBro
 			return &ctypes.ResultBroadcastTxCommit{
 				CheckTx:   *checkTxRes,
 				DeliverTx: abci.ResponseDeliverTx{},
-				Hash:      tx.OriginTx.Hash(),
+				Hash:      tx.Hash(),
 			}, err
 		}
 	}
