@@ -44,13 +44,13 @@ func (app *Application) SetOption(req types.RequestSetOption) types.ResponseSetO
 
 func (app *Application) DeliverTx(req types.RequestDeliverTx) types.ResponseDeliverTx {
 	if app.serial {
-		if len(req.Tx) > 8 {
+		if len(req.Tx.OriginTx) > 8 {
 			return types.ResponseDeliverTx{
 				Code: code.CodeTypeEncodingError,
-				Log:  fmt.Sprintf("Max tx size is 8 bytes, got %d", len(req.Tx))}
+				Log:  fmt.Sprintf("Max tx size is 8 bytes, got %d", len(req.Tx.OriginTx))}
 		}
 		tx8 := make([]byte, 8)
-		copy(tx8[len(tx8)-len(req.Tx):], req.Tx)
+		copy(tx8[len(tx8)-len(req.Tx.OriginTx):], req.Tx.OriginTx)
 		txValue := binary.BigEndian.Uint64(tx8)
 		if txValue != uint64(app.txCount) {
 			return types.ResponseDeliverTx{
@@ -64,13 +64,13 @@ func (app *Application) DeliverTx(req types.RequestDeliverTx) types.ResponseDeli
 
 func (app *Application) CheckTx(req types.RequestCheckTx) types.ResponseCheckTx {
 	if app.serial {
-		if len(req.Tx) > 8 {
+		if len(req.Tx.OriginTx) > 8 {
 			return types.ResponseCheckTx{
 				Code: code.CodeTypeEncodingError,
-				Log:  fmt.Sprintf("Max tx size is 8 bytes, got %d", len(req.Tx))}
+				Log:  fmt.Sprintf("Max tx size is 8 bytes, got %d", len(req.Tx.OriginTx))}
 		}
 		tx8 := make([]byte, 8)
-		copy(tx8[len(tx8)-len(req.Tx):], req.Tx)
+		copy(tx8[len(tx8)-len(req.Tx.OriginTx):], req.Tx.OriginTx)
 		txValue := binary.BigEndian.Uint64(tx8)
 		if txValue < uint64(app.txCount) {
 			return types.ResponseCheckTx{

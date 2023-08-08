@@ -167,7 +167,8 @@ func eventReIndex(cmd *cobra.Command, args eventReIndexArgs) error {
 					tr := abcitypes.TxResult{
 						Height: b.Height,
 						Index:  uint32(i),
-						Tx:     b.Data.Txs[i],
+						//modifed by syy
+						Tx:     b.Data.Txs[i].ToProto(),
 						Result: *(r.DeliverTxs[i]),
 					}
 

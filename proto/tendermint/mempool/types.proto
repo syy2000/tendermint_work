@@ -2,9 +2,10 @@ syntax = "proto3";
 package tendermint.mempool;
 
 option go_package = "github.com/tendermint/tendermint/proto/tendermint/mempool";
+import "tendermint/types/tx.proto";
 
 message Txs {
-  repeated bytes txs = 1;
+  repeated tendermint.types.Tx txs = 1;
 }
 
 message Message {

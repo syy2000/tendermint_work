@@ -1022,7 +1022,7 @@ func (data *Data) StringIndented(indent string) string {
 			txStrings[i] = fmt.Sprintf("... (%v total)", len(data.Txs))
 			break
 		}
-		txStrings[i] = fmt.Sprintf("%X (%d bytes)", tx.Hash(), len(tx))
+		txStrings[i] = fmt.Sprintf("%X (%d bytes)", tx.Hash(), len(tx.OriginTx))
 	}
 	return fmt.Sprintf(`Data{
 %s  %v
@@ -1036,9 +1036,9 @@ func (data *Data) ToProto() tmproto.Data {
 	tp := new(tmproto.Data)
 
 	if len(data.Txs) > 0 {
-		txBzs := make([][]byte, len(data.Txs))
+		txBzs := make([]*tmproto.Tx, len(data.Txs))
 		for i := range data.Txs {
-			txBzs[i] = data.Txs[i]
+			txBzs[i] = data.Txs[i].ToProto()
 		}
 		tp.Txs = txBzs
 	}
@@ -1057,7 +1057,9 @@ func DataFromProto(dp *tmproto.Data) (Data, error) {
 	if len(dp.Txs) > 0 {
 		txBzs := make(Txs, len(dp.Txs))
 		for i := range dp.Txs {
-			txBzs[i] = Tx(dp.Txs[i])
+			//txBzs[i] = Tx(dp.Txs[i].NewTxFromProto)
+			//modified by syy
+			txBzs[i] = *NewTxFromProto(dp.Txs[i])
 		}
 		data.Txs = txBzs
 	} else {

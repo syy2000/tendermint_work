@@ -5,6 +5,7 @@ option go_package = "github.com/tendermint/tendermint/abci/types";
 
 // For more information on gogo.proto, see:
 // https://github.com/gogo/protobuf/blob/master/extensions.md
+import "tendermint/types/tx.proto";
 import "tendermint/crypto/proof.proto";
 import "tendermint/types/types.proto";
 import "tendermint/crypto/keys.proto";
@@ -87,12 +88,12 @@ enum CheckTxType {
 }
 
 message RequestCheckTx {
-  bytes       tx   = 1;
+  tendermint.types.Tx  tx   = 1;
   CheckTxType type = 2;
 }
 
 message RequestDeliverTx {
-  bytes tx = 1;
+  tendermint.types.Tx  tx = 1;
 }
 
 message RequestEndBlock {
@@ -329,9 +330,9 @@ message EventAttribute {
 //
 // One usage is indexing transaction results.
 message TxResult {
-  int64             height = 1;
-  uint32            index  = 2;
-  bytes             tx     = 3;
+  int64                 height = 1;
+  uint32                index  = 2;
+  tendermint.types.Tx   tx     = 3;
   ResponseDeliverTx result = 4 [(gogoproto.nullable) = false];
 }
 

@@ -98,7 +98,7 @@ func (gen *PoHGenerator) getPoHMessage() *types.PoHTimestamp {
 // Warning:该方法不是线程安全的
 // 弃用
 func (gen *PoHGenerator) GenerateTimestamp(tx *types.Tx) types.TxTimestamp {
-	gen.generateNextRound(*tx)
+	gen.generateNextRound(tx.OriginTx)
 	return gen.getPoHMessage()
 }
 

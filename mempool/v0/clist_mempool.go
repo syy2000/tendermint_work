@@ -27,6 +27,8 @@ type CListMempool struct {
 	// Atomic integers
 	height   int64 // the last block Update()'d to
 	txsBytes int64 // total size of mempool, in bytes
+	//modified by syy
+	//txsOpNum int64 // 事务中操作的数量
 
 	// notify listeners (ie. consensus) when txs are available
 	notifiedTxsAvailable bool
@@ -59,6 +61,17 @@ type CListMempool struct {
 
 	logger  log.Logger
 	metrics *mempool.Metrics
+	//modified by syy
+	blockStatusMap sync.Map // 区块状态映射表
+	txsConflictMap sync.Map // 事务依赖表
+}
+
+// modified by syy
+type txsConflictMapValue struct {
+	attrValue string
+	curTx     []*mempoolTx
+	prevTx    []*mempoolTx
+	operation string
 }
 
 var _ mempool.Mempool = &CListMempool{}
@@ -147,6 +160,7 @@ func (mem *CListMempool) Size() int {
 
 // Safe for concurrent use by multiple goroutines.
 func (mem *CListMempool) SizeBytes() int64 {
+	//modified by syy
 	return atomic.LoadInt64(&mem.txsBytes)
 }
 
@@ -201,7 +215,7 @@ func (mem *CListMempool) TxsWaitChan() <-chan struct{} {
 //
 // Safe for concurrent use by multiple goroutines.
 func (mem *CListMempool) CheckTx(
-	tx types.Tx,
+	tx types.MemTx,
 	cb func(*abci.Response),
 	txInfo mempool.TxInfo,
 ) error {
@@ -210,7 +224,10 @@ func (mem *CListMempool) CheckTx(
 	// use defer to unlock mutex because application (*local client*) might panic
 	defer mem.updateMtx.RUnlock()
 
-	txSize := len(tx)
+	//modified by syy
+	//txSize := len(tx)
+	txSize := len(tx.OriginTx.OriginTx)
+	//txSize := len(tx.ToProto().OriginTx)
 
 	if err := mem.isFull(txSize); err != nil {
 		return err
@@ -224,7 +241,7 @@ func (mem *CListMempool) CheckTx(
 	}
 
 	if mem.preCheck != nil {
-		if err := mem.preCheck(tx); err != nil {
+		if err := mem.preCheck(tx.OriginTx); err != nil {
 			return mempool.ErrPreCheck{
 				Reason: err,
 			}
@@ -236,12 +253,12 @@ func (mem *CListMempool) CheckTx(
 		return err
 	}
 
-	if !mem.cache.Push(tx) { // if the transaction already exists in the cache
+	if !mem.cache.Push(tx.OriginTx) { // if the transaction already exists in the cache
 		// Record a new sender for a tx we've already seen.
 		// Note it's possible a tx is still in the cache but no longer in the mempool
 		// (eg. after committing a block, txs are removed from mempool but not cache),
 		// so we only record the sender for txs still in the mempool.
-		if e, ok := mem.txsMap.Load(tx.Key()); ok {
+		if e, ok := mem.txsMap.Load(tx.OriginTx.Key()); ok {
 			memTx := e.(*clist.CElement).Value.(*mempoolTx)
 			memTx.senders.LoadOrStore(txInfo.SenderID, true)
 			// TODO: consider punishing peer for dups,
@@ -251,7 +268,7 @@ func (mem *CListMempool) CheckTx(
 		return mempool.ErrTxInCache
 	}
 
-	reqRes := mem.proxyAppConn.CheckTxAsync(abci.RequestCheckTx{Tx: tx})
+	reqRes := mem.proxyAppConn.CheckTxAsync(abci.RequestCheckTx{Tx: tx.OriginTx.ToProto()})
 	reqRes.SetCallback(mem.reqResCb(tx, txInfo.SenderID, txInfo.SenderP2PID, cb))
 
 	return nil
@@ -288,7 +305,9 @@ func (mem *CListMempool) globalCb(req *abci.Request, res *abci.Response) {
 //
 // Used in CheckTx to record PeerID who sent us the tx.
 func (mem *CListMempool) reqResCb(
-	tx []byte,
+	//tx []byte,
+	//modified by syy
+	tx types.MemTx,
 	peerID uint16,
 	peerP2PID p2p.ID,
 	externalCb func(*abci.Response),
@@ -315,9 +334,10 @@ func (mem *CListMempool) reqResCb(
 //   - resCbFirstTime (lock not held) if tx is valid
 func (mem *CListMempool) addTx(memTx *mempoolTx) {
 	e := mem.txs.PushBack(memTx)
-	mem.txsMap.Store(memTx.tx.Key(), e)
-	atomic.AddInt64(&mem.txsBytes, int64(len(memTx.tx)))
-	mem.metrics.TxSizeBytes.Observe(float64(len(memTx.tx)))
+	// modified by syy
+	mem.txsMap.Store(memTx.tx.TxId, e)
+	atomic.AddInt64(&mem.txsBytes, int64(len(memTx.tx.OriginTx.OriginTx)))
+	mem.metrics.TxSizeBytes.Observe(float64(len(memTx.tx.OriginTx.OriginTx)))
 }
 
 // Called from:
@@ -327,7 +347,8 @@ func (mem *CListMempool) removeTx(tx types.Tx, elem *clist.CElement, removeFromC
 	mem.txs.Remove(elem)
 	elem.DetachPrev()
 	mem.txsMap.Delete(tx.Key())
-	atomic.AddInt64(&mem.txsBytes, int64(-len(tx)))
+	//modified by syy
+	atomic.AddInt64(&mem.txsBytes, int64(-len(tx.OriginTx)))
 
 	if removeFromCache {
 		mem.cache.Remove(tx)
@@ -339,7 +360,7 @@ func (mem *CListMempool) RemoveTxByKey(txKey types.TxKey) error {
 	if e, ok := mem.txsMap.Load(txKey); ok {
 		memTx := e.(*clist.CElement).Value.(*mempoolTx)
 		if memTx != nil {
-			mem.removeTx(memTx.tx, e.(*clist.CElement), false)
+			mem.removeTx(memTx.tx.OriginTx, e.(*clist.CElement), false)
 			return nil
 		}
 		return errors.New("transaction not found")
@@ -370,7 +391,9 @@ func (mem *CListMempool) isFull(txSize int) error {
 // The case where the app checks the tx for the second and subsequent times is
 // handled by the resCbRecheck callback.
 func (mem *CListMempool) resCbFirstTime(
-	tx []byte,
+	//tx []byte,
+	//modified by syy
+	tx types.MemTx,
 	peerID uint16,
 	peerP2PID p2p.ID,
 	res *abci.Response,
@@ -379,28 +402,114 @@ func (mem *CListMempool) resCbFirstTime(
 	case *abci.Response_CheckTx:
 		var postCheckErr error
 		if mem.postCheck != nil {
-			postCheckErr = mem.postCheck(tx, r.CheckTx)
+			postCheckErr = mem.postCheck(tx.OriginTx, r.CheckTx)
 		}
 		if (r.CheckTx.Code == abci.CodeTypeOK) && postCheckErr == nil {
 			// Check mempool isn't full again to reduce the chance of exceeding the
 			// limits.
-			if err := mem.isFull(len(tx)); err != nil {
+			//modified by syy
+			//Tx转TxNew
+			if err := mem.isFull(len(tx.OriginTx.OriginTx)); err != nil {
 				// remove from cache (mempool might have a space later)
-				mem.cache.Remove(tx)
+				mem.cache.Remove(tx.OriginTx)
 				mem.logger.Error(err.Error())
 				return
 			}
+			// types.Tx转types.MemTx
 
 			memTx := &mempoolTx{
 				height:    mem.height,
 				gasWanted: r.CheckTx.GasWanted,
 				tx:        tx,
+				//modified by syy
+				inDegree:  0,
+				outDegree: 0,
+			}
+			//modified by syy
+			//查找事务依赖表，找到“对象id+属性”的前序依赖
+			for index, txObAndAttr := range tx.TxObAndAttr {
+				op := tx.TxOp[index] // 读/写操作
+				if v, ok := mem.txsConflictMap.Load(txObAndAttr); ok {
+					//arr := strings.Split(v.(string), " ")
+
+					// arr[0]: 属性值 arr[1]: 操作事务 arr[2]: 前序依赖事务 arr[3]: 读写操作
+					memTx.isBlock = false
+					//memTx.tx.SetTxId(1)
+					conflictMapValue := v.(*txsConflictMapValue)
+					txArr := conflictMapValue.curTx
+					latestTx := txArr[len(txArr)-1] // 最近操作此项的事务
+					if conflictMapValue.operation == "read" {
+						if op == "read" && latestTx.tx.TxId != tx.TxId { // 直接加入，与现有的读并行
+							conflictMapValue.curTx = append(conflictMapValue.curTx, memTx)
+							mem.txsConflictMap.Store(txObAndAttr, conflictMapValue)
+						} else if op == "write" { // 该操作为写操作，与前面不能并行
+							if latestTx.tx.TxId == tx.TxId {
+								conflictMapValue.prevTx = conflictMapValue.curTx[:len(conflictMapValue.curTx)-1]
+							} else {
+								conflictMapValue.prevTx = conflictMapValue.curTx
+							}
+							//arr[1] = tx.TxId()
+							conflictMapValue.curTx = conflictMapValue.curTx[0:0] // 清空
+							conflictMapValue.curTx = append(conflictMapValue.curTx, memTx)
+							conflictMapValue.operation = "write"
+							mem.txsConflictMap.Store(txObAndAttr, conflictMapValue)
+						}
+					} else if conflictMapValue.operation == "write" { //上一个操作此对象+属性的是事务的写操作，与此事务不能并行
+						if latestTx.tx.TxId != tx.TxId { // 若上一个操作此对象+id的还是该事务，不用修改
+							conflictMapValue.prevTx = conflictMapValue.curTx
+							conflictMapValue.curTx = conflictMapValue.curTx[0:0]
+							conflictMapValue.curTx = append(conflictMapValue.curTx, memTx)
+							mem.txsConflictMap.Store(txObAndAttr, conflictMapValue)
+						}
+					}
+				} else { // 事务依赖表没有此项，查找区块状态映射表
+					if v, ok := mem.blockStatusMap.Load(txObAndAttr); ok {
+						//区块状态映射表中的区块号作为前序依赖事务
+						blockId := v.(int64)
+						prevTx := &mempoolTx{
+							isBlock: true,
+						}
+						prevTx.tx.SetTxId(blockId)
+						conflictMapValue := &txsConflictMapValue{
+							attrValue: "",
+							curTx:     []*mempoolTx{memTx},
+							prevTx:    []*mempoolTx{prevTx},
+							operation: op,
+						}
+						mem.txsConflictMap.Store(txObAndAttr, conflictMapValue) // 存入事务依赖表
+					}
+				}
+			}
+			//modified by syy
+			//生成结点的邻接关系
+			for _, txObAndAttr := range tx.TxObAndAttr {
+				if v, ok := mem.txsConflictMap.Load(txObAndAttr); ok {
+					//arr := strings.Split(v.(string), " ")
+					conflictMapValue := v.(*txsConflictMapValue)
+					//txArr := conflictMapValue.curTx
+					prevTxs := conflictMapValue.prevTx //当前事务在此对象+属性上的前序依赖事务
+					for _, prevTx := range prevTxs {
+						// if !contains(memTx.conflictTxs, prevTx){
+						// 	memTx.conflictTxs = append(memTx.conflictTxs, prevTx)
+						// }
+						if !containsTx(memTx.parentTxs, prevTx) {
+							memTx.parentTxs = append(memTx.parentTxs, prevTx)
+							memTx.outDegree += 1
+						}
+						//根据事务id找到对应的mempoolTx
+						if !containsTx(prevTx.childTxs, memTx) {
+							prevTx.childTxs = append(prevTx.childTxs, memTx)
+							prevTx.inDegree += 1
+						}
+					}
+				}
 			}
 			memTx.senders.Store(peerID, true)
+			//modified by syy
 			mem.addTx(memTx)
 			mem.logger.Debug(
 				"added good transaction",
-				"tx", types.Tx(tx).Hash(),
+				"tx", types.Tx(tx.OriginTx).Hash(),
 				"res", r,
 				"height", memTx.height,
 				"total", mem.Size(),
@@ -410,7 +519,7 @@ func (mem *CListMempool) resCbFirstTime(
 			// ignore bad transaction
 			mem.logger.Debug(
 				"rejected bad transaction",
-				"tx", types.Tx(tx).Hash(),
+				"tx", types.Tx(tx.OriginTx).Hash(),
 				"peerID", peerP2PID,
 				"res", r,
 				"err", postCheckErr,
@@ -419,13 +528,17 @@ func (mem *CListMempool) resCbFirstTime(
 
 			if !mem.config.KeepInvalidTxsInCache {
 				// remove from cache (it might be good later)
-				mem.cache.Remove(tx)
+				mem.cache.Remove(tx.OriginTx)
 			}
 		}
 
 	default:
 		// ignore other messages
 	}
+}
+
+func removeLastElement(s string) {
+	panic("unimplemented")
 }
 
 // callback, which is called after the app rechecked the tx.
@@ -436,12 +549,16 @@ func (mem *CListMempool) resCbRecheck(req *abci.Request, res *abci.Response) {
 	switch r := res.Value.(type) {
 	case *abci.Response_CheckTx:
 		tx := req.GetCheckTx().Tx
+		tx1 := types.Tx{
+			OriginTx:   tx.OriginTx,
+			TxTimehash: types.NewPoHTimestampFromProto(tx.TxTimehash),
+		}
 		memTx := mem.recheckCursor.Value.(*mempoolTx)
 
 		// Search through the remaining list of tx to recheck for a transaction that matches
 		// the one we received from the ABCI application.
 		for {
-			if bytes.Equal(tx, memTx.tx) {
+			if bytes.Equal(tx.OriginTx, memTx.tx.OriginTx.OriginTx) {
 				// We've found a tx in the recheck list that matches the tx that we
 				// received from the ABCI application.
 				// Break, and use this transaction for further checks.
@@ -450,7 +567,9 @@ func (mem *CListMempool) resCbRecheck(req *abci.Request, res *abci.Response) {
 
 			mem.logger.Error(
 				"re-CheckTx transaction mismatch",
-				"got", types.Tx(tx),
+				//modified by syy
+				//"got", types.Tx(tx),
+				"got", types.Tx(memTx.tx.OriginTx),
 				"expected", memTx.tx,
 			)
 
@@ -468,16 +587,16 @@ func (mem *CListMempool) resCbRecheck(req *abci.Request, res *abci.Response) {
 
 		var postCheckErr error
 		if mem.postCheck != nil {
-			postCheckErr = mem.postCheck(tx, r.CheckTx)
+			postCheckErr = mem.postCheck(tx1, r.CheckTx)
 		}
 
 		if (r.CheckTx.Code == abci.CodeTypeOK) && postCheckErr == nil {
 			// Good, nothing to do.
 		} else {
 			// Tx became invalidated due to newly committed block.
-			mem.logger.Debug("tx is no longer valid", "tx", types.Tx(tx).Hash(), "res", r, "err", postCheckErr)
+			mem.logger.Debug("tx is no longer valid", "tx", types.Tx(tx1).Hash(), "res", r, "err", postCheckErr)
 			// NOTE: we remove tx from the cache because it might be good later
-			mem.removeTx(tx, mem.recheckCursor, !mem.config.KeepInvalidTxsInCache)
+			mem.removeTx(tx1, mem.recheckCursor, !mem.config.KeepInvalidTxsInCache)
 		}
 		if mem.recheckCursor == mem.recheckEnd {
 			mem.recheckCursor = nil
@@ -534,9 +653,9 @@ func (mem *CListMempool) ReapMaxBytesMaxGas(maxBytes, maxGas int64) types.Txs {
 	for e := mem.txs.Front(); e != nil; e = e.Next() {
 		memTx := e.Value.(*mempoolTx)
 
-		txs = append(txs, memTx.tx)
+		txs = append(txs, memTx.tx.OriginTx)
 
-		dataSize := types.ComputeProtoSizeForTxs([]types.Tx{memTx.tx})
+		dataSize := types.ComputeProtoSizeForTxs([]types.Tx{memTx.tx.OriginTx})
 
 		// Check total size requirement
 		if maxBytes > -1 && runningSize+dataSize > maxBytes {
@@ -570,7 +689,7 @@ func (mem *CListMempool) ReapMaxTxs(max int) types.Txs {
 	txs := make([]types.Tx, 0, tmmath.MinInt(mem.txs.Len(), max))
 	for e := mem.txs.Front(); e != nil && len(txs) <= max; e = e.Next() {
 		memTx := e.Value.(*mempoolTx)
-		txs = append(txs, memTx.tx)
+		txs = append(txs, memTx.tx.OriginTx)
 	}
 	return txs
 }
@@ -651,7 +770,7 @@ func (mem *CListMempool) recheckTxs() {
 	for e := mem.txs.Front(); e != nil; e = e.Next() {
 		memTx := e.Value.(*mempoolTx)
 		mem.proxyAppConn.CheckTxAsync(abci.RequestCheckTx{
-			Tx:   memTx.tx,
+			Tx:   memTx.tx.OriginTx.ToProto(),
 			Type: abci.CheckTxType_Recheck,
 		})
 	}
@@ -659,20 +778,46 @@ func (mem *CListMempool) recheckTxs() {
 	mem.proxyAppConn.FlushAsync()
 }
 
+// modified by syy
+func (mem *CListMempool) blockIdToMemTx(blockId int64) *mempoolTx {
+	memTx := &mempoolTx{
+		isBlock: true,
+	}
+	memTx.tx.SetTxId(blockId)
+	return memTx
+}
+
 //--------------------------------------------------------------------------------
 
 // mempoolTx is a transaction that successfully ran
 type mempoolTx struct {
-	height    int64    // height that this tx had been validated in
-	gasWanted int64    // amount of gas this tx states it will require
-	tx        types.Tx //
+	height    int64       // height that this tx had been validated in
+	gasWanted int64       // amount of gas this tx states it will require
+	tx        types.MemTx //
 
 	// ids of peers who've sent us this tx (as a map for quick lookups).
 	// senders: PeerID -> bool
 	senders sync.Map
+	//modified by syy
+	//conflictTxs []string // 记录的是冲突的事务id
+	inDegree  int64
+	outDegree int64
+	parentTxs []*mempoolTx
+	childTxs  []*mempoolTx
+	isBlock   bool
 }
 
 // Height returns the height for this transaction
 func (memTx *mempoolTx) Height() int64 {
 	return atomic.LoadInt64(&memTx.height)
+}
+
+// modified by syy
+func containsTx(arrTx []*mempoolTx, targetTx *mempoolTx) bool {
+	for _, item := range arrTx {
+		if item == targetTx {
+			return true
+		}
+	}
+	return false
 }

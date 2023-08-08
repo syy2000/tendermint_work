@@ -129,7 +129,7 @@ func (app *Application) InitChain(req abci.RequestInitChain) abci.ResponseInitCh
 
 // CheckTx implements ABCI.
 func (app *Application) CheckTx(req abci.RequestCheckTx) abci.ResponseCheckTx {
-	_, _, err := parseTx(req.Tx)
+	_, _, err := parseTx(req.Tx.OriginTx)
 	if err != nil {
 		return abci.ResponseCheckTx{
 			Code: code.CodeTypeEncodingError,
@@ -141,7 +141,7 @@ func (app *Application) CheckTx(req abci.RequestCheckTx) abci.ResponseCheckTx {
 
 // DeliverTx implements ABCI.
 func (app *Application) DeliverTx(req abci.RequestDeliverTx) abci.ResponseDeliverTx {
-	key, value, err := parseTx(req.Tx)
+	key, value, err := parseTx(req.Tx.OriginTx)
 	if err != nil {
 		panic(err) // shouldn't happen since we verified it in CheckTx
 	}

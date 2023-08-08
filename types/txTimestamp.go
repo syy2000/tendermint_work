@@ -1,9 +1,10 @@
 package types
 
 import (
+	"strconv"
+
 	"github.com/tendermint/tendermint/crypto/merkle"
 	tmproto "github.com/tendermint/tendermint/proto/tendermint/types"
-	"strconv"
 )
 
 type TxTimestamp interface {
@@ -31,7 +32,6 @@ func (t *PoHTimestamp) Hash() []byte {
 	leafs[3] = t.Out
 	return merkle.HashFromByteSlices(leafs)
 }
-
 func (t *PoHTimestamp) ToProto() *tmproto.PoHTimestamp {
 	if t == nil {
 		return nil

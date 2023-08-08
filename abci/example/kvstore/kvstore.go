@@ -88,11 +88,11 @@ func (app *Application) Info(req types.RequestInfo) (resInfo types.ResponseInfo)
 // tx is either "key=value" or just arbitrary bytes
 func (app *Application) DeliverTx(req types.RequestDeliverTx) types.ResponseDeliverTx {
 	var key, value []byte
-	parts := bytes.Split(req.Tx, []byte("="))
+	parts := bytes.Split(req.Tx.OriginTx, []byte("="))
 	if len(parts) == 2 {
 		key, value = parts[0], parts[1]
 	} else {
-		key, value = req.Tx, req.Tx
+		key, value = req.Tx.OriginTx, req.Tx.OriginTx
 	}
 
 	err := app.state.db.Set(prefixKey(key), value)
