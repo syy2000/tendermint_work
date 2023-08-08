@@ -9,6 +9,8 @@ import (
 
 	"strings"
 
+	"regexp"
+	
 	"github.com/tendermint/tendermint/abci/example/code"
 	"github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/version"
