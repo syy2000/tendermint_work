@@ -183,7 +183,7 @@ func (memR *Reactor) ReceiveEnvelope(e p2p.Envelope) {
 				TxTimehash: (*types.PoHTimestamp)(tx.TxTimehash),
 			}
 			//types.Tx转MemTx
-			err = memR.mempool.CheckTx(ntx, nil, txInfo)
+			// err = memR.mempool.CheckTx(ntx, nil, txInfo)
 			if errors.Is(err, mempool.ErrTxInCache) {
 				memR.Logger.Debug("Tx already exists in cache", "tx", ntx.String())
 			} else if err != nil {

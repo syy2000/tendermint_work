@@ -56,9 +56,9 @@ type ABCIClient interface {
 		opts ABCIQueryOptions) (*ctypes.ResultABCIQuery, error)
 
 	// Writing to abci app
-	BroadcastTxCommit(context.Context, types.Tx) (*ctypes.ResultBroadcastTxCommit, error)
-	BroadcastTxAsync(context.Context, types.Tx) (*ctypes.ResultBroadcastTx, error)
-	BroadcastTxSync(context.Context, types.Tx) (*ctypes.ResultBroadcastTx, error)
+	BroadcastTxCommit(context.Context, types.MemTx) (*ctypes.ResultBroadcastTxCommit, error)
+	BroadcastTxAsync(context.Context, types.MemTx) (*ctypes.ResultBroadcastTx, error)
+	BroadcastTxSync(context.Context, types.MemTx) (*ctypes.ResultBroadcastTx, error)
 }
 
 // SignClient groups together the functionality needed to get valid signatures
