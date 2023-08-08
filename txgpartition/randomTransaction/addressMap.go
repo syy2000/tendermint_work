@@ -40,11 +40,11 @@ func (am *AddressMap) Init() {
 	})
 	start := time.Now()
 	for i := 0; i < am.blockNodeNum; i++ {
-		u := NewIDNode(nil, NumberList[i*avaNum:(i+1)*avaNum], i)
+		u := NewIDNode(nil, NumberList[i*avaNum:(i+1)*avaNum], int64(i))
 		am.nodes[i] = u
 		am.AddNode(u)
 	}
-	for i := am.blockNodeNum; i < am.blockNodeNum+am.txNodeNum; i++ {
+	for i := int64(am.blockNodeNum); i < int64(am.blockNodeNum+am.txNodeNum); i++ {
 		u := NewRandomIDNode(i)
 		am.nodes[i] = u
 		am.AddNode(u)
@@ -93,7 +93,7 @@ func (am *AddressMap) BuildRelation(n *IDNode, u []*IDNode) {
 
 // ========================== TxGraph ===========================================
 func (am *AddressMap) IsBlockNode(n txgpartition.TxNode) bool {
-	return n.ID() < am.blockNodeNum
+	return n.ID() < int64(am.blockNodeNum)
 }
 func (am *AddressMap) InDegree(n txgpartition.TxNode) int {
 	return MustIDNode(n).Indegreee
@@ -111,7 +111,7 @@ func (am *AddressMap) Visit(n txgpartition.TxNode) {
 func (am *AddressMap) Visited(n txgpartition.TxNode) bool {
 	return false
 }
-func (am *AddressMap) NodeIndex(n txgpartition.TxNode) int {
+func (am *AddressMap) NodeIndex(n txgpartition.TxNode) int64 {
 	return n.ID()
 }
 func (am *AddressMap) BlockNodeNum() int {
@@ -128,11 +128,11 @@ func (am *AddressMap) FindZeroOutdegree() (out []txgpartition.TxNode) {
 	}
 	return
 }
-func (am *AddressMap) QueryFather(n txgpartition.TxNode) map[int]txgpartition.TxNode {
+func (am *AddressMap) QueryFather(n txgpartition.TxNode) map[int64]txgpartition.TxNode {
 	u := MustIDNode(n)
 	return u.Father
 }
-func (am *AddressMap) QueryNodeChild(n txgpartition.TxNode) map[int]txgpartition.TxNode {
+func (am *AddressMap) QueryNodeChild(n txgpartition.TxNode) map[int64]txgpartition.TxNode {
 	u := MustIDNode(n)
 	return u.Child
 }

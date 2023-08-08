@@ -17,24 +17,24 @@ var (
 type IDNode struct {
 	RIDs                 []int
 	WIDs                 []int
-	id                   int
-	Father, Child        map[int]txgpartition.TxNode
+	id                   int64
+	Father, Child        map[int64]txgpartition.TxNode
 	Indegreee, OutDegree int
 }
 
 var _ txgpartition.TxNode = (*IDNode)(nil)
 
-func NewIDNode(reads []int, writes []int, ID int) *IDNode {
+func NewIDNode(reads []int, writes []int, ID int64) *IDNode {
 	return &IDNode{
 		RIDs:   reads,
 		WIDs:   writes,
-		Father: make(map[int]txgpartition.TxNode),
-		Child:  make(map[int]txgpartition.TxNode),
+		Father: make(map[int64]txgpartition.TxNode),
+		Child:  make(map[int64]txgpartition.TxNode),
 		id:     ID,
 	}
 }
 
-func NewRandomIDNode(ID int) *IDNode {
+func NewRandomIDNode(ID int64) *IDNode {
 	rand.Seed(time.Now().UnixNano())
 	accounts := make([]int, ACCOUNTSPLIT)
 	mod := rand.Intn(5)
@@ -49,7 +49,7 @@ func NewRandomIDNode(ID int) *IDNode {
 	return NewIDNode(accounts[:READNUM], accounts[READNUM:], ID)
 }
 
-func (n *IDNode) ID() int {
+func (n *IDNode) ID() int64 {
 	return n.id
 }
 func (n *IDNode) Less(n2 txgpartition.TxNode) bool {

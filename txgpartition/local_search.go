@@ -5,14 +5,14 @@ const (
 )
 
 /*
-partitioning : map[int]int : 事务id -> 事务颜色
+partitioning : map[int64]int : 事务id -> 事务颜色
 colorMap : *ColorMap : 事务颜色的邻接矩阵
 txMap : [][]TxNode : 事务颜色 -> 属于该颜色的事务集合
 */
 
-func Init_Partitioning(g TxGraph, K int) (map[int]int, *ColorMap, [][]TxNode) {
+func Init_Partitioning(g TxGraph, K int) (map[int64]int, *ColorMap, [][]TxNode) {
 	var (
-		partitioning    = make(map[int]int)
+		partitioning    = make(map[int64]int)
 		B               = g.BlockNodeNum()
 		T               = g.TxNodeNum()
 		colorMap        = CreateColorMap(B + K)
@@ -67,8 +67,8 @@ func Init_Partitioning(g TxGraph, K int) (map[int]int, *ColorMap, [][]TxNode) {
 					}
 				}
 				// the more priceful, the latter in tmp list
-				typeMap := make(map[int]int)
-				childMap := make(map[int]int)
+				typeMap := make(map[int64]int)
+				childMap := make(map[int64]int)
 				for _, n := range tmp {
 					seen := make(map[int]bool)
 					nodeID := g.NodeIndex(n)
@@ -127,9 +127,9 @@ func Init_Partitioning(g TxGraph, K int) (map[int]int, *ColorMap, [][]TxNode) {
 				}
 			}
 			// the more priceful, the latter in tmp list
-			costMap := make(map[int]int)
-			typeMap := make(map[int]int)
-			childMap := make(map[int]int)
+			costMap := make(map[int64]int)
+			typeMap := make(map[int64]int)
+			childMap := make(map[int64]int)
 			for _, n := range tmp {
 				seen := make(map[int]bool)
 				nodeID := g.NodeIndex(n)
@@ -175,7 +175,7 @@ func Init_Partitioning(g TxGraph, K int) (map[int]int, *ColorMap, [][]TxNode) {
 	return partitioning, colorMap, txMap
 }
 
-func SimpleMove(g TxGraph, K int, alpha float64, partitioning map[int]int, colorMap *ColorMap, txMap [][]TxNode) (map[int]int, *ColorMap, [][]TxNode) {
+func SimpleMove(g TxGraph, K int, alpha float64, partitioning map[int64]int, colorMap *ColorMap, txMap [][]TxNode) (map[int64]int, *ColorMap, [][]TxNode) {
 	var (
 		avaSize = float64(g.TxNodeNum()) / float64(K)
 		Lmax    = (1.0 + alpha) * avaSize
@@ -263,7 +263,7 @@ func SimpleMove(g TxGraph, K int, alpha float64, partitioning map[int]int, color
 	return partitioning, colorMap, out
 }
 
-func AdvancedMove(g TxGraph, K int, alpha float64, partitioning map[int]int, colorMap *ColorMap, txMap [][]TxNode) (map[int]int, *ColorMap, [][]TxNode) {
+func AdvancedMove(g TxGraph, K int, alpha float64, partitioning map[int64]int, colorMap *ColorMap, txMap [][]TxNode) (map[int64]int, *ColorMap, [][]TxNode) {
 	var (
 		avaSize = float64(g.TxNodeNum()) / float64(K)
 		Lmax    = (1.0 + alpha) * avaSize

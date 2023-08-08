@@ -11,7 +11,7 @@ type TxNode interface {
 	// 1. 每个事务节点都需要存储自己的ID，ID可以是任意唯一的int值
 	Less(TxNode) bool
 	Equal(TxNode) bool
-	ID() int
+	ID() int64
 }
 
 type TxGraph interface {
@@ -31,7 +31,7 @@ type TxGraph interface {
 	Visit(TxNode)
 	// 节点的ID
 	// 可以直接返回TxNode.ID()
-	NodeIndex(TxNode) int
+	NodeIndex(TxNode) int64
 
 	// graph basic
 	// 图中区块节点的数量
@@ -44,7 +44,7 @@ type TxGraph interface {
 	FindZeroOutdegree() []TxNode
 	// 节点的所有父节点；可以是乱序的
 	// 4. 不可以遍历所有节点寻找父节点，可以将父节点的指针暂存在数据结构中
-	QueryFather(TxNode) map[int]TxNode
+	QueryFather(TxNode) map[int64]TxNode
 	// 节点的所有子节点；可以是乱序的
-	QueryNodeChild(TxNode) map[int]TxNode
+	QueryNodeChild(TxNode) map[int64]TxNode
 }

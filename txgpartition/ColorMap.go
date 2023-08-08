@@ -99,7 +99,12 @@ func CalculatePartitioningQualityByColorMap(c *ColorMap) int {
 func CalculatePartitioningQualityByInnerPartitioningEdge(c *ColorMap) int {
 	var u int
 	for i := 0; i < c.size; i++ {
-		u += c.adjMatrix[i][i]
+		for j := 0; j < c.size; j++ {
+			if i == j {
+				continue
+			}
+			u += c.adjMatrix[i][j]
+		}
 	}
 	return u
 }
