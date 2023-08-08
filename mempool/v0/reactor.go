@@ -200,8 +200,9 @@ func (memR *Reactor) ReceiveEnvelope(e p2p.Envelope) {
 				TxTimehash: (*types.PoHTimestamp)(tx.TxTimehash),
 			}
 			//types.Tx转MemTx
-			// donghao : need a checkTx for mempool reactor
-			err = memR.mempool.CheckTx(ntx, nil, txInfo)
+			// donghao : CheckTx ----> CheckTxReactor
+			err = memR.mempool.CheckTxReactor(ntx, nil, txInfo)
+			//err = memR.mempool.CheckTx(ntx, nil, txInfo)
 			if errors.Is(err, mempool.ErrTxInCache) {
 				memR.Logger.Debug("Tx already exists in cache", "tx", ntx.String())
 			} else if err != nil {
