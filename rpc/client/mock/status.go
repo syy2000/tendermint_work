@@ -1,5 +1,6 @@
 package mock
 
+/*
 import (
 	"context"
 
@@ -52,3 +53,4 @@ func (r *StatusRecorder) Status(ctx context.Context) (*ctypes.ResultStatus, erro
 	})
 	return res, err
 }
+donghao*/

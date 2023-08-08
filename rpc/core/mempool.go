@@ -19,19 +19,21 @@ import (
 // BroadcastTxAsync returns right away, with no response. Does not wait for
 // CheckTx nor DeliverTx results.
 // More: https://docs.tendermint.com/v0.34/rpc/#/Tx/broadcast_tx_async
-func BroadcastTxAsync(ctx *rpctypes.Context, tx types.MemTx) (*ctypes.ResultBroadcastTx, error) {
+func BroadcastTxAsync(ctx *rpctypes.Context, tx []byte) (*ctypes.ResultBroadcastTx, error) {
+	// modified by donghao : Change tx type
 	err := env.Mempool.CheckTx(tx, nil, mempl.TxInfo{})
 
 	if err != nil {
 		return nil, err
 	}
-	return &ctypes.ResultBroadcastTx{Hash: tx.OriginTx.Hash()}, nil
+	tmpTx := types.Tx{OriginTx: tx}
+	return &ctypes.ResultBroadcastTx{Hash: tmpTx.Hash()}, nil
 }
 
 // BroadcastTxSync returns with the response from CheckTx. Does not wait for
 // DeliverTx result.
 // More: https://docs.tendermint.com/v0.34/rpc/#/Tx/broadcast_tx_sync
-func BroadcastTxSync(ctx *rpctypes.Context, tx types.MemTx) (*ctypes.ResultBroadcastTx, error) {
+func BroadcastTxSync(ctx *rpctypes.Context, tx []byte) (*ctypes.ResultBroadcastTx, error) {
 	resCh := make(chan *abci.Response, 1)
 	err := env.Mempool.CheckTx(tx, func(res *abci.Response) {
 		select {
@@ -43,7 +45,7 @@ func BroadcastTxSync(ctx *rpctypes.Context, tx types.MemTx) (*ctypes.ResultBroad
 	if err != nil {
 		return nil, err
 	}
-
+	tmpTx := types.Tx{OriginTx: tx}
 	select {
 	case <-ctx.Context().Done():
 		return nil, fmt.Errorf("broadcast confirmation not received: %w", ctx.Context().Err())
@@ -54,26 +56,27 @@ func BroadcastTxSync(ctx *rpctypes.Context, tx types.MemTx) (*ctypes.ResultBroad
 			Data:      r.Data,
 			Log:       r.Log,
 			Codespace: r.Codespace,
-			Hash:      tx.OriginTx.Hash(),
+			Hash:      tmpTx.Hash(),
 		}, nil
 	}
 }
 
 // BroadcastTxCommit returns with the responses from CheckTx and DeliverTx.
 // More: https://docs.tendermint.com/v0.34/rpc/#/Tx/broadcast_tx_commit
-func BroadcastTxCommit(ctx *rpctypes.Context, tx types.MemTx) (*ctypes.ResultBroadcastTxCommit, error) {
+func BroadcastTxCommit(ctx *rpctypes.Context, tx []byte) (*ctypes.ResultBroadcastTxCommit, error) {
 	subscriber := ctx.RemoteAddr()
+	// modified by donghao
+	tmpTx := types.Tx{OriginTx: tx}
 
 	if env.EventBus.NumClients() >= env.Config.MaxSubscriptionClients {
 		return nil, fmt.Errorf("max_subscription_clients %d reached", env.Config.MaxSubscriptionClients)
 	} else if env.EventBus.NumClientSubscriptions(subscriber) >= env.Config.MaxSubscriptionsPerClient {
 		return nil, fmt.Errorf("max_subscriptions_per_client %d reached", env.Config.MaxSubscriptionsPerClient)
 	}
-
 	// Subscribe to tx being committed in block.
 	subCtx, cancel := context.WithTimeout(ctx.Context(), SubscribeTimeout)
 	defer cancel()
-	q := types.EventQueryTxFor(tx.OriginTx)
+	q := types.EventQueryTxFor(tmpTx)
 	deliverTxSub, err := env.EventBus.Subscribe(subCtx, subscriber, q)
 	if err != nil {
 		err = fmt.Errorf("failed to subscribe to tx: %w", err)
@@ -107,7 +110,7 @@ func BroadcastTxCommit(ctx *rpctypes.Context, tx types.MemTx) (*ctypes.ResultBro
 			return &ctypes.ResultBroadcastTxCommit{
 				CheckTx:   *checkTxRes,
 				DeliverTx: abci.ResponseDeliverTx{},
-				Hash:      tx.OriginTx.Hash(),
+				Hash:      tmpTx.Hash(),
 			}, nil
 		}
 
@@ -118,7 +121,7 @@ func BroadcastTxCommit(ctx *rpctypes.Context, tx types.MemTx) (*ctypes.ResultBro
 			return &ctypes.ResultBroadcastTxCommit{
 				CheckTx:   *checkTxRes,
 				DeliverTx: deliverTxRes.Result,
-				Hash:      tx.OriginTx.Hash(),
+				Hash:      tmpTx.Hash(),
 				Height:    deliverTxRes.Height,
 			}, nil
 		case <-deliverTxSub.Cancelled():
@@ -133,7 +136,7 @@ func BroadcastTxCommit(ctx *rpctypes.Context, tx types.MemTx) (*ctypes.ResultBro
 			return &ctypes.ResultBroadcastTxCommit{
 				CheckTx:   *checkTxRes,
 				DeliverTx: abci.ResponseDeliverTx{},
-				Hash:      tx.OriginTx.Hash(),
+				Hash:      tmpTx.Hash(),
 			}, err
 		case <-time.After(env.Config.TimeoutBroadcastTxCommit):
 			err = errors.New("timed out waiting for tx to be included in a block")
@@ -141,7 +144,7 @@ func BroadcastTxCommit(ctx *rpctypes.Context, tx types.MemTx) (*ctypes.ResultBro
 			return &ctypes.ResultBroadcastTxCommit{
 				CheckTx:   *checkTxRes,
 				DeliverTx: abci.ResponseDeliverTx{},
-				Hash:      tx.OriginTx.Hash(),
+				Hash:      tmpTx.Hash(),
 			}, err
 		}
 	}
