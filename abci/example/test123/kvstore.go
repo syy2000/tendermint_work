@@ -177,23 +177,60 @@ func (app *Application) Commit() types.ResponseCommit {
 // Returns an associated value or nil if missing.
 func (app *Application) Query(reqQuery types.RequestQuery) (resQuery types.ResponseQuery) {
 	if reqQuery.Prove {
-		value, err := app.state.db1.Get(prefixKey(reqQuery.Data))
-		if err != nil {
-			panic(err)
-		}
-		if value == nil {
-			resQuery.Log = "does not exist"
+		pattern := `^[a-zA-Z]+-[a-zA-Z]+$`
+		// 使用正则表达式匹配字符串
+		match, _ := regexp.MatchString(pattern, reqQuery.String())
+		if match {
+			value, err := app.state.db1.Get(prefixKey(reqQuery.Data))
+			if err != nil {
+				panic(err)
+			}
+			if value == nil {
+				resQuery.Log = "does not exist"
+			} else {
+				resQuery.Log = "exists"
+			}
+			resQuery.Index = -1 // TODO make Proof return index
+			resQuery.Key = reqQuery.Data
+			resQuery.Value = value
+			resQuery.Height = app.state.Height
+			return
 		} else {
-			resQuery.Log = "exists"
+			value2, err := app.state.db2.Get(prefixKey(reqQuery.Data))
+			if err != nil {
+				panic(err)
+			}
+			if value2 == nil {
+				value3, err := app.state.db3.Get(prefixKey(reqQuery.Data))
+				if err != nil {
+					panic(err)
+				}
+				if value3 == nil {
+					resQuery.Log = "does not exist"
+				} else {
+					resQuery.Log = "exists"
+				}
+				resQuery.Index = -1 // TODO make Proof return index
+				resQuery.Key = reqQuery.Data
+				resQuery.Value = value3
+				resQuery.Height = app.state.Height
+			} else {
+				value3, err := app.state.db3.Get(prefixKey(value2))
+				if err != nil {
+					panic(err)
+				}
+				if value3 == nil {
+					resQuery.Log = "does not exist"
+				} else {
+					resQuery.Log = "exists"
+				}
+				resQuery.Index = -1 // TODO make Proof return index
+				resQuery.Key = reqQuery.Data
+				resQuery.Value = value3
+				resQuery.Height = app.state.Height
+			}
 		}
-		resQuery.Index = -1 // TODO make Proof return index
-		resQuery.Key = reqQuery.Data
-		resQuery.Value = value
-		resQuery.Height = app.state.Height
-
-		return
 	}
-
 	resQuery.Key = reqQuery.Data
 	value, err := app.state.db1.Get(prefixKey(reqQuery.Data))
 	if err != nil {
