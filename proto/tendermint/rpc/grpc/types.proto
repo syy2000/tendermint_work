@@ -3,6 +3,7 @@ package tendermint.rpc.grpc;
 option  go_package = "github.com/tendermint/tendermint/rpc/grpc;coregrpc";
 
 import "tendermint/abci/types.proto";
+import "tendermint/types/tx.proto";
 
 //----------------------------------------
 // Request types
@@ -10,7 +11,7 @@ import "tendermint/abci/types.proto";
 message RequestPing {}
 
 message RequestBroadcastTx {
-  bytes tx = 1;
+  tendermint.types.Tx tx = 1;
 }
 
 //----------------------------------------

@@ -46,7 +46,7 @@ func Tx(ctx *rpctypes.Context, hash []byte, prove bool) (*ctypes.ResultTx, error
 		Height:   height,
 		Index:    index,
 		TxResult: r.Result,
-		Tx:       r.Tx,
+		Tx:       *types.NewTxFromProto(r.Tx),
 		Proof:    proof,
 	}, nil
 }
@@ -122,11 +122,11 @@ func TxSearch(
 		}
 
 		apiResults = append(apiResults, &ctypes.ResultTx{
-			Hash:     types.Tx(r.Tx).Hash(),
+			Hash:     types.Tx(*types.NewTxFromProto(r.Tx)).Hash(),
 			Height:   r.Height,
 			Index:    r.Index,
 			TxResult: r.Result,
-			Tx:       r.Tx,
+			Tx:       *types.NewTxFromProto(r.Tx),
 			Proof:    proof,
 		})
 	}
