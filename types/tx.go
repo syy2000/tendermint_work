@@ -9,6 +9,7 @@ import (
 	"github.com/tendermint/tendermint/crypto/merkle"
 	"github.com/tendermint/tendermint/crypto/tmhash"
 	tmbytes "github.com/tendermint/tendermint/libs/bytes"
+	"github.com/tendermint/tendermint/libs/json"
 	tmproto "github.com/tendermint/tendermint/proto/tendermint/types"
 )
 
@@ -45,6 +46,34 @@ type (
 
 func (tx MemTx) SetTxId(BlockId int64) {
 	tx.TxId = BlockId
+}
+
+func (memTx MemTx) UnmarshalJSON(data []byte) error {
+	tmpTx := struct {
+		TxId        int64    `json:"txid"`
+		TxOp        []string `json:"txop"`
+		TxObAndAttr []string `json:"txobandattr"`
+		TxValue     []Value  `json:"txvalue"` // must be map[string]interface{} or []interface{}
+	}{}
+	err := json.Unmarshal(data, &tmpTx)
+	if err != nil {
+		return err
+	}
+	memTx.TxId = tmpTx.TxId
+	memTx.TxOp = tmpTx.TxOp
+	memTx.TxObAndAttr = tmpTx.TxObAndAttr
+	memTx.TxValue = tmpTx.TxValue
+	return nil
+}
+
+// Tx转MemTx
+func txToMemTx(tx Tx) MemTx {
+	memTx := &MemTx{
+		TxTimehash: tx.TxTimehash,
+		OriginTx:   tx,
+	}
+	memTx.UnmarshalJSON(tx.OriginTx)
+	return *memTx
 }
 
 // func (txValue Value) ToProto() *tmproto.Tx_Value {
@@ -97,7 +126,7 @@ func NewTxFromProto(protoTx *tmproto.Tx) *Tx {
 		return nil
 	}
 	return &Tx{
-		OriginTx: protoTx.OriginTx,
+		OriginTx:   protoTx.OriginTx,
 		TxTimehash: (*PoHTimestamp)(protoTx.TxTimehash),
 	}
 }

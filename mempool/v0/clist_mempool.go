@@ -488,6 +488,14 @@ func (mem *CListMempool) resCbFirstTime(
 							operation: op,
 						}
 						mem.txsConflictMap.Store(txObAndAttr, conflictMapValue) // 存入事务依赖表
+					} else { // 事务依赖表和区块映射表均没有此项，新增至事务依赖表
+						conflictMapValue := &txsConflictMapValue{
+							attrValue: "",
+							curTx:     []*mempoolTx{memTx},
+							// prevTx:    []*mempoolTx{prevTx},
+							operation: op,
+						}
+						mem.txsConflictMap.Store(txObAndAttr, conflictMapValue)
 					}
 				}
 			}
