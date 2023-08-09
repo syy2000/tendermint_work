@@ -34,8 +34,7 @@ type PoHGenerator struct {
 	mtx tmsync.RWMutex
 	// tx输入
 	MessageChan chan types.TxWithTimestamp
-	// 输出到mempool准备，废弃
-	OutChan chan types.TxTimestamp
+
 	// 打好时间戳的tx输出
 	TxOutChan chan types.TxWithTimestamp
 
@@ -69,10 +68,6 @@ func NewPoHGenerator(
 	gen.Logger = log
 	gen.txWithTimestampMap = sync.Map{}
 	return gen
-}
-
-func (gen *PoHGenerator) SetOutputChan(out chan types.TxTimestamp) {
-	gen.OutChan = out
 }
 
 // 生成下一个轮次

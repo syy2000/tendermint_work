@@ -70,7 +70,7 @@ type CListMempool struct {
 	// 看情况决定是New时传入或Set
 	timeStampGen txTimestamp.Generator
 	timeTxState  txTimestamp.TxState
-	txLocalChan  chan types.TxWithTimestamp
+
 	txPeerChan   chan types.TxWithTimestamp
 }
 
