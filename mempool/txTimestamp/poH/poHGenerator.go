@@ -2,6 +2,7 @@ package poH
 
 import (
 	"crypto/sha256"
+	"sync"
 
 	"github.com/tendermint/tendermint/libs/log"
 	tmsync "github.com/tendermint/tendermint/libs/sync"
@@ -44,6 +45,10 @@ type PoHGenerator struct {
 	quit chan struct{}
 
 	Logger log.Logger
+
+	txWithTimestampMap sync.Map
+	// map[int64]txxypes.TxWithTimestamp
+	mtx2 tmsync.Mutex
 }
 
 func NewPoHGenerator(
@@ -62,6 +67,7 @@ func NewPoHGenerator(
 	gen.flag = false
 	gen.quit = make(chan struct{}, 5)
 	gen.Logger = log
+	gen.txWithTimestampMap = sync.Map{}
 	return gen
 }
 
@@ -134,6 +140,7 @@ func (gen *PoHGenerator) generateNextRoundAndOutput() {
 		if txOutFlag {
 			tx.SetTimestamp(res)
 			gen.TxOutChan <- tx
+			// gen.txWithTimestampMap[tx.GetId()] = tx
 		}
 	}
 }
@@ -172,8 +179,29 @@ func (gen *PoHGenerator) SetSeed(seed *types.Seed) bool {
 }
 
 // 同步函数
-func (gen *PoHGenerator) GetTx() types.TxWithTimestamp {
-	return <-gen.TxOutChan
+func (gen *PoHGenerator) GetTx(id int64) types.TxWithTimestamp {
+	tx, ok := gen.txWithTimestampMap.Load(id)
+	if !ok {
+		gen.mtx2.Lock()
+		defer gen.mtx2.Unlock()
+		tx, ok := gen.txWithTimestampMap.Load(id)
+		if ok {
+			gen.txWithTimestampMap.Delete(id)
+			return tx.(types.TxWithTimestamp)
+		}
+		for {
+			select {
+			case tx = <-gen.TxOutChan:
+				temp := tx.(types.TxWithTimestamp)
+				if temp.GetId() == id {
+					return temp
+				}
+				gen.txWithTimestampMap.Store(temp.GetId(), temp)
+			}
+		}
+	}
+	gen.txWithTimestampMap.Delete(id)
+	return tx.(types.TxWithTimestamp)
 }
 
 func (gen *PoHGenerator) GetTxChan() chan types.TxWithTimestamp {

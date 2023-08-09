@@ -70,6 +70,8 @@ type CListMempool struct {
 	// 看情况决定是New时传入或Set
 	timeStampGen txTimestamp.Generator
 	timeTxState  txTimestamp.TxState
+	txLocalChan  chan types.TxWithTimestamp
+	txPeerChan   chan types.TxWithTimestamp
 }
 
 // modified by syy
@@ -240,20 +242,6 @@ func (mem *CListMempool) CheckTx(
 		// TODO : fill TxTimehash ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 		TxTimehash: nil,
 	}
-	/*
-		本节点时间戳使用示例，输入输出均为types.Tx类型
-
-		给tx打上时间戳
-		mem.timeStampGen.AddTx(tx)
-
-		获取打上时间戳的tx，首先要获取chan
-		chan := mem.timeStampGen.GetTxChan()
-		之后即可使用chan获取tx
-		txWithTimestamp:=<-chan
-		tx:=txWithTimestamp.(types.Tx)
-		注：不保证加入AddTx和获取顺序一致
-		注：尽量先使用GetTxChan()，GetTx()的实现即为<-GetTxChan()
-	*/
 	/*
 		来自其他节点的事务使用示例
 		与本节点基本相同，首先需要得到Chan
@@ -520,12 +508,14 @@ func (mem *CListMempool) resCbFirstTime(
 				mem.logger.Error(err.Error())
 				return
 			}
-			// types.Tx转types.MemTx
-
+			// timestamp
+			mem.timeStampGen.AddTx(&tx)
+			txWithTimestamp := mem.timeStampGen.GetTx(tx.GetId())
+			tempTx := txWithTimestamp.(*types.MemTx)
 			memTx := &mempoolTx{
 				height:    mem.height,
 				gasWanted: r.CheckTx.GasWanted,
-				tx:        tx,
+				tx:        *tempTx,
 				//modified by syy
 				inDegree:  0,
 				outDegree: 0,

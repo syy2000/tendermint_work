@@ -117,17 +117,22 @@ func (tx Tx) String() string {
 	return fmt.Sprintf("Tx{%X}", []byte(tx.OriginTx))
 }
 
-func (tx *Tx) GetTx() []byte {
-	return tx.OriginTx
+func (tx *MemTx) GetTx() []byte {
+	return tx.OriginTx.OriginTx
 }
 
-func (tx *Tx) SetTimestamp(t TxTimestamp) {
+func (tx *MemTx) SetTimestamp(t TxTimestamp) {
 	poHTimestamp := t.(*PoHTimestamp)
 	tx.TxTimehash = poHTimestamp
+	tx.OriginTx.TxTimehash = poHTimestamp
 }
 
-func (tx *Tx) GetTimestamp() TxTimestamp {
+func (tx *MemTx) GetTimestamp() TxTimestamp {
 	return tx.TxTimehash
+}
+
+func (tx *MemTx) GetId() int64 {
+	return tx.TxId
 }
 
 // modified by syy

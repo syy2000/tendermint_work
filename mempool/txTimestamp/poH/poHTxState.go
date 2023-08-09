@@ -265,9 +265,11 @@ func (s *PoHTxState) handleBlock(src p2p.ID, b *types.PoHBlock) (bool, error) {
 	}
 	// 输出，需要改timestamp到tx，或者把Tx结构定下来也可以
 	for _, tx := range b.PoHTimestamps {
-		s.TxWithTimestampChan <- &types.Tx{
-			OriginTx: tx.Message,
-			TxTimehash: tx,
+		s.TxWithTimestampChan <- &types.MemTx{
+			OriginTx: types.Tx{
+				OriginTx:   tx.Message,
+				TxTimehash: tx,
+			},
 		}
 	}
 	return true, nil
