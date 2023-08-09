@@ -42,10 +42,10 @@ func NewBlockStatusMappingTable(tableType int8, options []func(Table)) *BlockSta
 	return &u
 }
 
-func (b *BlockStatusMappingTable) Set(key string, value int64) bool {
+func (b *BlockStatusMappingTable) Store(key string, value int64) bool {
 	return b.table.set(key, blockHeight(value))
 }
-func (b *BlockStatusMappingTable) Get(key string) (int64, bool) {
+func (b *BlockStatusMappingTable) Load(key string) (int64, bool) {
 	if u, ok := b.table.get(key); ok {
 		if tu, ok := u.(blockHeight); ok {
 			return int64(tu), true

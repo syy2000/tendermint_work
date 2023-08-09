@@ -128,19 +128,19 @@ func TestMain(t *testing.T) {
 				for v := 0; v < len(testNameList[u]); v++ {
 					key := testNameList[i][j] + testNameList[u][v]
 					value := int64(i + j + u + v)
-					mpt.Set(key, int64(value))
+					mpt.Store(key, int64(value))
 					cnt++
 				}
 			}
 		}
 	}
 	for i := 0; i < 1000000; i++ {
-		mpt.Set(fmt.Sprintf("%d", i), int64(i))
+		mpt.Store(fmt.Sprintf("%d", i), int64(i))
 		cnt++
 	}
 	fmt.Println("total time : ", time.Since(start))
 	fmt.Printf("calcutate %d times\n", cnt)
-	fmt.Println(mpt.Get("donghaodonghao"))
+	fmt.Println(mpt.Load("donghaodonghao"))
 	start = time.Now()
 	fmt.Printf("hash : %x\n", mpt.Hash())
 	fmt.Println("hash time : ", time.Since(start))

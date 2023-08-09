@@ -106,6 +106,10 @@ func NewReactor(config *cfg.MempoolConfig, mempool *CListMempool) *Reactor {
 	return memR
 }
 
+func (memR *Reactor) SetTxState(txstate txTimestamp.TxState) {
+	memR.TxState = txstate
+}
+
 // InitPeer implements Reactor by creating a state for the peer.
 func (memR *Reactor) InitPeer(peer p2p.Peer) p2p.Peer {
 	memR.ids.ReserveForPeer(peer)
@@ -120,6 +124,8 @@ func (memR *Reactor) SetLogger(l log.Logger) {
 
 // OnStart implements p2p.BaseReactor.
 func (memR *Reactor) OnStart() error {
+	// 禁用原本的config.Broadcast
+	memR.config.Broadcast = false
 	if !memR.config.Broadcast {
 		memR.Logger.Info("Tx broadcasting is disabled")
 	}
@@ -200,8 +206,9 @@ func (memR *Reactor) ReceiveEnvelope(e p2p.Envelope) {
 				TxTimehash: (*types.PoHTimestamp)(tx.TxTimehash),
 			}
 			//types.Tx转MemTx
-			// donghao : need a checkTx for mempool reactor
-			err = memR.mempool.CheckTx(ntx, nil, txInfo)
+			// donghao : CheckTx ----> CheckTxReactor
+			err = memR.mempool.CheckTxReactor(ntx, nil, txInfo)
+			//err = memR.mempool.CheckTx(ntx, nil, txInfo)
 			if errors.Is(err, mempool.ErrTxInCache) {
 				memR.Logger.Debug("Tx already exists in cache", "tx", ntx.String())
 			} else if err != nil {

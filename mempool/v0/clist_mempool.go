@@ -13,9 +13,12 @@ import (
 	tmmath "github.com/tendermint/tendermint/libs/math"
 	tmsync "github.com/tendermint/tendermint/libs/sync"
 	"github.com/tendermint/tendermint/mempool"
+	"github.com/tendermint/tendermint/mempool/txTimestamp"
 	"github.com/tendermint/tendermint/p2p"
 	"github.com/tendermint/tendermint/proxy"
 	"github.com/tendermint/tendermint/types"
+
+	"github.com/tendermint/tendermint/txgpartition"
 )
 
 // CListMempool is an ordered in-memory pool for transactions before they are
@@ -64,6 +67,11 @@ type CListMempool struct {
 	//modified by syy
 	blockStatusMap sync.Map // 区块状态映射表
 	txsConflictMap sync.Map // 事务依赖表
+	// 看情况决定是New时传入或Set
+	timeStampGen txTimestamp.Generator
+	timeTxState  txTimestamp.TxState
+
+	txPeerChan   chan types.TxWithTimestamp
 }
 
 // modified by syy
@@ -234,8 +242,82 @@ func (mem *CListMempool) CheckTx(
 		// TODO : fill TxTimehash ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 		TxTimehash: nil,
 	}
+	/*
+		来自其他节点的事务使用示例
+		与本节点基本相同，首先需要得到Chan
+		txTimeStamp:=mem.timeTxState.GetTxChan()
+		之后即可使用chan获取tx
+		txWithTimestamp:=<-chan
+		tx:=txWithTimestamp.(types.Tx)
+	*/
 	tx := types.MemTx{
 		OriginTx: mmpOriginTx,
+		// modified by donghao
+		// TODO : fill Other Values ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+	}
+
+	if err := mem.isFull(txSize); err != nil {
+		return err
+	}
+
+	if txSize > mem.config.MaxTxBytes {
+		return mempool.ErrTxTooLarge{
+			Max:    mem.config.MaxTxBytes,
+			Actual: txSize,
+		}
+	}
+
+	if mem.preCheck != nil {
+		if err := mem.preCheck(tx.OriginTx); err != nil {
+			return mempool.ErrPreCheck{
+				Reason: err,
+			}
+		}
+	}
+
+	// NOTE: proxyAppConn may error if tx buffer is full
+	if err := mem.proxyAppConn.Error(); err != nil {
+		return err
+	}
+
+	if !mem.cache.Push(tx.OriginTx) { // if the transaction already exists in the cache
+		// Record a new sender for a tx we've already seen.
+		// Note it's possible a tx is still in the cache but no longer in the mempool
+		// (eg. after committing a block, txs are removed from mempool but not cache),
+		// so we only record the sender for txs still in the mempool.
+		if e, ok := mem.txsMap.Load(tx.OriginTx.Key()); ok {
+			memTx := e.(*clist.CElement).Value.(*mempoolTx)
+			memTx.senders.LoadOrStore(txInfo.SenderID, true)
+			// TODO: consider punishing peer for dups,
+			// its non-trivial since invalid txs can become valid,
+			// but they can spam the same tx with little cost to them atm.
+		}
+		return mempool.ErrTxInCache
+	}
+
+	reqRes := mem.proxyAppConn.CheckTxAsync(abci.RequestCheckTx{Tx: tx.OriginTx.ToProto()})
+	reqRes.SetCallback(mem.reqResCb(tx, txInfo.SenderID, txInfo.SenderP2PID, cb))
+
+	return nil
+}
+
+// TODO
+func (mem *CListMempool) CheckTxReactor(
+	rawtx types.Tx,
+	cb func(*abci.Response),
+	txInfo mempool.TxInfo,
+) error {
+
+	mem.updateMtx.RLock()
+	// use defer to unlock mutex because application (*local client*) might panic
+	defer mem.updateMtx.RUnlock()
+
+	//modified by syy donghao
+	//txSize := len(tx)
+	//txSize := len(tx.ToProto().OriginTx)
+	txSize := len(rawtx.OriginTx)
+	tx := types.MemTx{
+		OriginTx: rawtx,
 		// modified by donghao
 		// TODO : fill Other Values ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 	}
@@ -426,12 +508,14 @@ func (mem *CListMempool) resCbFirstTime(
 				mem.logger.Error(err.Error())
 				return
 			}
-			// types.Tx转types.MemTx
-
+			// timestamp
+			mem.timeStampGen.AddTx(&tx)
+			txWithTimestamp := mem.timeStampGen.GetTx(tx.GetId())
+			tempTx := txWithTimestamp.(*types.MemTx)
 			memTx := &mempoolTx{
 				height:    mem.height,
 				gasWanted: r.CheckTx.GasWanted,
-				tx:        tx,
+				tx:        *tempTx,
 				//modified by syy
 				inDegree:  0,
 				outDegree: 0,
@@ -819,8 +903,8 @@ type mempoolTx struct {
 	senders sync.Map
 	//modified by syy
 	//conflictTxs []string // 记录的是冲突的事务id
-	inDegree  int64
-	outDegree int64
+	inDegree  int
+	outDegree int
 	parentTxs []*mempoolTx
 	childTxs  []*mempoolTx
 	isBlock   bool
@@ -839,4 +923,17 @@ func containsTx(arrTx []*mempoolTx, targetTx *mempoolTx) bool {
 		}
 	}
 	return false
+}
+
+// modified by donghao
+var _ txgpartition.TxNode = (*mempoolTx)(nil)
+
+func (memTx *mempoolTx) ID() int64 {
+	return memTx.tx.TxId
+}
+func (memTx *mempoolTx) Less(other txgpartition.TxNode) bool {
+	return memTx.ID() < other.ID()
+}
+func (memTx *mempoolTx) Equal(other txgpartition.TxNode) bool {
+	return memTx.ID() == other.ID()
 }
