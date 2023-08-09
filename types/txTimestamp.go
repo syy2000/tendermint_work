@@ -66,6 +66,7 @@ type TxWithTimestamp interface {
 	GetTx() []byte
 	SetTimestamp(t TxTimestamp)
 	GetTimestamp() TxTimestamp
+	GetId() int64
 }
 
 type TimestampNormalError struct {

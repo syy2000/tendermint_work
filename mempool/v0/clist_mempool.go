@@ -13,6 +13,7 @@ import (
 	tmmath "github.com/tendermint/tendermint/libs/math"
 	tmsync "github.com/tendermint/tendermint/libs/sync"
 	"github.com/tendermint/tendermint/mempool"
+	"github.com/tendermint/tendermint/mempool/txTimestamp"
 	"github.com/tendermint/tendermint/p2p"
 	"github.com/tendermint/tendermint/proxy"
 	"github.com/tendermint/tendermint/types"
@@ -66,6 +67,11 @@ type CListMempool struct {
 	//modified by syy
 	blockStatusMap sync.Map // 区块状态映射表
 	txsConflictMap sync.Map // 事务依赖表
+	// 看情况决定是New时传入或Set
+	timeStampGen txTimestamp.Generator
+	timeTxState  txTimestamp.TxState
+
+	txPeerChan   chan types.TxWithTimestamp
 }
 
 // modified by syy
@@ -236,6 +242,14 @@ func (mem *CListMempool) CheckTx(
 		// TODO : fill TxTimehash ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 		TxTimehash: nil,
 	}
+	/*
+		来自其他节点的事务使用示例
+		与本节点基本相同，首先需要得到Chan
+		txTimeStamp:=mem.timeTxState.GetTxChan()
+		之后即可使用chan获取tx
+		txWithTimestamp:=<-chan
+		tx:=txWithTimestamp.(types.Tx)
+	*/
 	tx := types.MemTx{
 		OriginTx: mmpOriginTx,
 		// modified by donghao
@@ -494,12 +508,14 @@ func (mem *CListMempool) resCbFirstTime(
 				mem.logger.Error(err.Error())
 				return
 			}
-			// types.Tx转types.MemTx
-
+			// timestamp
+			mem.timeStampGen.AddTx(&tx)
+			txWithTimestamp := mem.timeStampGen.GetTx(tx.GetId())
+			tempTx := txWithTimestamp.(*types.MemTx)
 			memTx := &mempoolTx{
 				height:    mem.height,
 				gasWanted: r.CheckTx.GasWanted,
-				tx:        tx,
+				tx:        *tempTx,
 				//modified by syy
 				inDegree:  0,
 				outDegree: 0,
