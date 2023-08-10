@@ -21,7 +21,7 @@ func TestTransaction(t *testing.T) {
 
 	// Partitioning with TOPSort + DFS
 	start := time.Now()
-	partitioning, cm, txMap := txgpartition.Init_Partitioning(s, _split_num)
+	partitioning, cm, txMap := txgpartition.Init_Partitioning(s, _split_num, 0.0)
 	fmt.Println("time used : ", time.Since(start))
 	fmt.Println("numEdges", s.edgeNum, "numBLocks", s.blockNodeNum)
 	fmt.Println("partition quality : ", txgpartition.CalculatePartitioningQualityByColorMap(cm))

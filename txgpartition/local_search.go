@@ -10,7 +10,7 @@ colorMap : *ColorMap : 事务颜色的邻接矩阵
 txMap : TransactionMap : 事务颜色(事务集编号) -> 属于该颜色的事务集合
 */
 
-func Init_Partitioning(g TxGraph, K int) (map[int64]int, *ColorMap, *TransactionMap) {
+func Init_Partitioning(g TxGraph, K int, _ float64) (map[int64]int, *ColorMap, *TransactionMap) {
 	var (
 		partitioning    = make(map[int64]int)
 		B               = g.BlockNodeNum()
