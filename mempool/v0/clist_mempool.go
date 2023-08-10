@@ -71,7 +71,7 @@ type CListMempool struct {
 	timeStampGen txTimestamp.Generator
 	timeTxState  txTimestamp.TxState
 
-	txPeerChan   chan types.TxWithTimestamp
+	txPeerChan chan types.TxWithTimestamp
 }
 
 // modified by syy
@@ -544,16 +544,19 @@ func (mem *CListMempool) resCbFirstTime(
 								conflictMapValue.prevTx = conflictMapValue.curTx
 							}
 							//arr[1] = tx.TxId()
-							conflictMapValue.curTx = conflictMapValue.curTx[0:0] // 清空
-							conflictMapValue.curTx = append(conflictMapValue.curTx, memTx)
+							conflictMapValue.curTx = []*mempoolTx{memTx}
+							// conflictMapValue.curTx = conflictMapValue.curTx[0:0] // 清空
+							// conflictMapValue.curTx = append(conflictMapValue.curTx, memTx)
 							conflictMapValue.operation = "write"
 							mem.txsConflictMap.Store(txObAndAttr, conflictMapValue)
 						}
 					} else if conflictMapValue.operation == "write" { //上一个操作此对象+属性的是事务的写操作，与此事务不能并行
 						if latestTx.tx.TxId != tx.TxId { // 若上一个操作此对象+id的还是该事务，不用修改
 							conflictMapValue.prevTx = conflictMapValue.curTx
-							conflictMapValue.curTx = conflictMapValue.curTx[0:0]
-							conflictMapValue.curTx = append(conflictMapValue.curTx, memTx)
+							conflictMapValue.curTx = []*mempoolTx{memTx}
+							// conflictMapValue.curTx = conflictMapValue.curTx[0:0]
+							// conflictMapValue.curTx = append(conflictMapValue.curTx, memTx)
+							conflictMapValue.operation = op
 							mem.txsConflictMap.Store(txObAndAttr, conflictMapValue)
 						}
 					}
