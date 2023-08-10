@@ -93,5 +93,19 @@ t2 := statustable.NewBlockStatusMappingTable(statustable.UseSafeSimple,nil)
 
 # 二、事务图划分部分
 
-待完善
+## 1. 事务图划分的目标
+事务图$G=<V, E>$，其划分划分$P=\{\{v_{k_{11}}, v_{k_{12}}...v_{k_{1r_1}}\} , ...  \{v_{k_{s1}}, v_{k_{s2}}...v_{k_{sr_s}}\}  \}$满足以下约束：
+
+ (1)完全划分约束：
+ 
+ ①$\forall i_1, i_2 \in \{1,2,... ,s\}, j_1 \in \{1,2,...,r_{i_1}\},j_2 \in \{1,2,...,r_{i_2}\}$，$i_1 \neq i_2 \vee j_1 \neq j_2 \Rightarrow v_{k_{i_1j_1}} \neq v_{k_{i_2j_2}}$；
+
+ ②$\bigcup_{i\in \{1,2,...,s\}} \{v_{k_{i1}}, v_{k_{i2}}...v_{k_{ir_i}}\}=V$。
+ 
+
+ (2) 均分约束：假设将$N$个事务划分为$K$个事务子集，不均衡系数为$\alpha$，则每个事务子集权重和在$L_{min}=(1-\alpha)\frac{N}{K}$与$L_{max}=(1+\alpha)\frac{N}{K}$之间。
+
+ (3) 无环约束：将事务图通过划分$P$进行划分，得到若干个事务图子集，以及子集间的割集(cut)，由事务图子集与割集组成的商图$Q$(quotient graph)是个有向无环图。
+
+ 
 
