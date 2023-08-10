@@ -75,6 +75,10 @@ t2 := statustable.NewBlockStatusMappingTable(statustable.UseSimpleMap,nil)
 // 以下两条命令可以创建相同的区块状态映射表
 t1 := statustable.NewBlockStatusMappingTable(2,nil)
 t2 := statustable.NewBlockStatusMappingTable(statustable.UseMPTree,nil)
+// 以下两条命令可以创建相同的区块状态映射表，并且在索引时计算主键的哈希
+// 非常建议在使用MPT树时开启计算主键哈希的功能
+t3 := statustable.NewBlockStatusMappingTable(2,statustable.OnlyUseHashOptions)
+t4 := statustable.NewBlockStatusMappingTable(statustable.UseMPTree,statustable.OnlyUseHashOptions)
 ```
 创建一个SimpleMap实现的**线程安全的**区块状态映射表：
 ```go
