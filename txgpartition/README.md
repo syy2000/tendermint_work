@@ -1,6 +1,9 @@
+最后修改于2023年8月10日
 # 一、区块状态映射表部分
 ## 1. 概述
-区块状态映射表(BlockStatusMappingTable)使用键值存储，存储了地址主键(string)对区块号(int64)的映射。实现了键值存储所必须的接口。使用以下代码可以导入区块状态映射表部分：
+区块状态映射表(BlockStatusMappingTable)使用键值存储，存储了地址主键(string)对区块号(int64)的映射，此外还提供通过区块号（int64）查询区块哈希的方法，查询范围至上一个检查块为止。
+
+使用以下代码可以导入区块状态映射表部分：
 ```
 import (
 "github.com/tendermint/tendermint/txpartition/statustable"
@@ -12,12 +15,16 @@ import (
 
 |接口名称|  输入  |输出|功能描述|
 |:-----:|:-----------:|:--:|:-----|
-|Get|key string| value int64, ok bool|根据所给的string类型的key在区块状态映射表中查询最近一次对该地址进行修改的区块号(value)。如果不存在所查询的主键，则ok返回值为false。
-|Set|key string, value int64|ok  bool|在区块状态映射表中记录key对value的映射；如果映射已存在，则覆盖原有记录。返回值记录修改是否成功。现阶段，如果返回值ok的值为false，可以认为是系统出现故障（内存溢出、栈溢出等），应立刻停止程序。
+|Load|key string| value int64, ok bool|根据所给的string类型的key在区块状态映射表中查询最近一次对该地址进行修改的区块号(value)。如果不存在所查询的主键，则ok返回值为false。
+|Store|key string, value int64|ok  bool|在区块状态映射表中记录key对value的映射；如果映射已存在，则覆盖原有记录。返回值记录修改是否成功。现阶段，如果返回值ok的值为false，可以认为是系统出现故障（内存溢出、栈溢出等），应立刻停止程序。
 |Clear| 无|无|清空区块状态映射表
 |Hash|无|[]byte|计算区块状态映射表的哈希值。该过程需要遍历一遍区块状态映射表中所有数据，因此耗时较长。
+|LoadBlockHash|id int64|hash []byte, ok bool|根据区块号(id)查询区块哈希(hash)的服务，如果查询失败(<font color="Blue">可能的原因：① 区块号对应的区块本身不存在；② 区块号对应的区块位于上一个检查块之前</font>)，则返回ok=false。
+|StoreBlockHash|id int64, hash []byte|ok bool|建立区块号(id)到区块哈希(hash)的映射。一般返回值为true。
 
-## 3. 区块装填映射表的创建
+<font color="Green">*备注：区块状态映射表中，区块状态映射的实现是可以选择的；目前，区块哈希的查询默认使用sync.Map实现，是线程安全的。*</font>
+
+## 3. 区块状态映射表的使用
 假设已经完成了1节中区块状态映射表的引入，使用以下函数可以创建一个指向区块状态映射表的指针：
 
 `func NewBlockStatusMappingTable(tableType int8, options []func(Table)) *BlockStatusMappingTable`
@@ -43,7 +50,7 @@ import (
 
 ④ UseSafeSimpleMap:
 
-使用`sync.Map`实现的SimpleMap，可以进行并发安全的读写。注意，<font color="Red"> 这并不意味着hash()、clear()、set()三个接口之间可以并发</font>，因为后二者可能导致前者的哈希计算出现错误（脏读、不可重复度、幻读，因为hash并不是sync.Map的内置功能，而是通过使用get遍历表单实现的）。
+使用`sync.Map`实现的SimpleMap，可以进行并发安全的读写。注意，<font color="Red"> 这并不意味着Hash()、Clear()、Store()三个接口之间可以并发</font>，因为后二者可能导致前者的哈希计算出现错误（脏读、不可重复度、幻读，因为Hash并不是sync.Map的内置功能，而是通过使用Load遍历表单实现的）。
 
 #### ***options***：可选参数
 

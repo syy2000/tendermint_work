@@ -15,7 +15,7 @@ func Init_Partitioning(g TxGraph, K int) (map[int64]int, *ColorMap, [][]TxNode) 
 		partitioning    = make(map[int64]int)
 		B               = g.BlockNodeNum()
 		T               = g.TxNodeNum()
-		colorMap        = CreateColorMap(B + K)
+		colorMap        = CreateColorMap(B+K, B)
 		BlockNodeQueue  = NewTxDequeue()
 		TxNodeQueue     = NewTxDequeue()
 		startColor      = B
@@ -172,6 +172,8 @@ func Init_Partitioning(g TxGraph, K int) (map[int64]int, *ColorMap, [][]TxNode) 
 			g.Visit(tx)
 		}
 	}
+	// calculate colorMap's indegree
+	colorMap.CalIndegrees()
 	return partitioning, colorMap, txMap
 }
 
@@ -260,6 +262,8 @@ func SimpleMove(g TxGraph, K int, alpha float64, partitioning map[int64]int, col
 			out[color] = append(out[color], n)
 		}
 	}
+	// calculate colorMap's indegree
+	colorMap.CalIndegrees()
 	return partitioning, colorMap, out
 }
 
@@ -342,5 +346,7 @@ func AdvancedMove(g TxGraph, K int, alpha float64, partitioning map[int64]int, c
 			out[color] = append(out[color], n)
 		}
 	}
+	// calculate colorMap's indegree
+	colorMap.CalIndegrees()
 	return partitioning, colorMap, out
 }
