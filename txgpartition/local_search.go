@@ -7,10 +7,10 @@ const (
 /*
 partitioning : map[int64]int : 事务id -> 事务颜色
 colorMap : *ColorMap : 事务颜色的邻接矩阵
-txMap : [][]TxNode : 事务颜色 -> 属于该颜色的事务集合
+txMap : TransactionMap : 事务颜色(事务集编号) -> 属于该颜色的事务集合
 */
 
-func Init_Partitioning(g TxGraph, K int) (map[int64]int, *ColorMap, [][]TxNode) {
+func Init_Partitioning(g TxGraph, K int) (map[int64]int, *ColorMap, *TransactionMap) {
 	var (
 		partitioning    = make(map[int64]int)
 		B               = g.BlockNodeNum()
@@ -21,7 +21,7 @@ func Init_Partitioning(g TxGraph, K int) (map[int64]int, *ColorMap, [][]TxNode) 
 		startColor      = B
 		startBlockColor = 0
 		cnt             = 0
-		txMap           = make([][]TxNode, B+K)
+		txMap           = NewTransactionMap(B, K, T/K+1)
 	)
 
 	// initialize 0 indegree nodes
@@ -100,7 +100,7 @@ func Init_Partitioning(g TxGraph, K int) (map[int64]int, *ColorMap, [][]TxNode) 
 				}
 				g.Visit(b)
 				partitioning[g.NodeIndex(b)] = startBlockColor
-				txMap[startColor] = append(txMap[startBlockColor], b)
+				txMap.Append(startBlockColor, b)
 				startBlockColor++
 			}
 		} else if tx := TxNodeQueue.PopFront(); !g.Visited(tx) {
@@ -113,7 +113,7 @@ func Init_Partitioning(g TxGraph, K int) (map[int64]int, *ColorMap, [][]TxNode) 
 				panic(g.NodeIndex(tx))
 			}
 			partitioning[g.NodeIndex(tx)] = startColor
-			txMap[startColor] = append(txMap[startColor], tx)
+			txMap.Append(startColor, tx)
 			for _, n := range g.QueryFather(tx) {
 				fatherColor := partitioning[g.NodeIndex(n)]
 				colorMap.Add(fatherColor, startColor, EdgeWeight)
@@ -177,15 +177,15 @@ func Init_Partitioning(g TxGraph, K int) (map[int64]int, *ColorMap, [][]TxNode) 
 	return partitioning, colorMap, txMap
 }
 
-func SimpleMove(g TxGraph, K int, alpha float64, partitioning map[int64]int, colorMap *ColorMap, txMap [][]TxNode) (map[int64]int, *ColorMap, [][]TxNode) {
+func SimpleMove(g TxGraph, K int, alpha float64, partitioning map[int64]int, colorMap *ColorMap, txMap *TransactionMap) (map[int64]int, *ColorMap, *TransactionMap) {
 	var (
 		avaSize = float64(g.TxNodeNum()) / float64(K)
 		Lmax    = (1.0 + alpha) * avaSize
 		Lmin    = (1.0 - alpha) * avaSize
 	)
-	ColorSize := make([]int, len(txMap))
-	for i := 0; i < len(txMap); i++ {
-		ColorSize[i] = len(txMap[i])
+	ColorSize := make([]int, txMap.Size())
+	for i := 0; i < txMap.Size(); i++ {
+		ColorSize[i] = len(txMap.Get(i))
 	}
 	moveTo := func(n TxNode, dst int, childs, fathers []int) {
 		txID := g.NodeIndex(n)
@@ -196,8 +196,8 @@ func SimpleMove(g TxGraph, K int, alpha float64, partitioning map[int64]int, col
 		ColorSize[dst]++
 	}
 
-	for i := len(txMap) - 1; i >= 0; i-- {
-		for _, n := range txMap[i] {
+	for i := txMap.Size() - 1; i >= 0; i-- {
+		for _, n := range txMap.Get(i) {
 			if g.IsBlockNode(n) {
 				continue
 			}
@@ -207,7 +207,7 @@ func SimpleMove(g TxGraph, K int, alpha float64, partitioning map[int64]int, col
 			}
 			FatherSet, ChildSet := g.QueryFather(n), g.QueryNodeChild(n)
 			fathers, childs := make([]int, len(FatherSet)), make([]int, len(ChildSet))
-			moveToBigger := nodeColor+1 < len(txMap) && float64(ColorSize[nodeColor+1]) < Lmax-1.0
+			moveToBigger := nodeColor+1 < txMap.Size() && float64(ColorSize[nodeColor+1]) < Lmax-1.0
 			moveToSmaller := nodeColor-1 >= g.BlockNodeNum() && float64(ColorSize[nodeColor-1]) < Lmax-1.0
 			j := 0
 			for _, father := range FatherSet {
@@ -255,11 +255,11 @@ func SimpleMove(g TxGraph, K int, alpha float64, partitioning map[int64]int, col
 			}
 		}
 	}
-	out := make([][]TxNode, len(txMap))
-	for _, l1 := range txMap {
-		for _, n := range l1 {
+	out := NewTransactionMap(txMap.blockNum, txMap.partitionNum, txMap.avasize)
+	for l1 := 0; l1 < txMap.Size(); l1++ {
+		for _, n := range txMap.Get(l1) {
 			color := partitioning[g.NodeIndex(n)]
-			out[color] = append(out[color], n)
+			out.Append(color, n)
 		}
 	}
 	// calculate colorMap's indegree
@@ -267,15 +267,15 @@ func SimpleMove(g TxGraph, K int, alpha float64, partitioning map[int64]int, col
 	return partitioning, colorMap, out
 }
 
-func AdvancedMove(g TxGraph, K int, alpha float64, partitioning map[int64]int, colorMap *ColorMap, txMap [][]TxNode) (map[int64]int, *ColorMap, [][]TxNode) {
+func AdvancedMove(g TxGraph, K int, alpha float64, partitioning map[int64]int, colorMap *ColorMap, txMap *TransactionMap) (map[int64]int, *ColorMap, *TransactionMap) {
 	var (
 		avaSize = float64(g.TxNodeNum()) / float64(K)
 		Lmax    = (1.0 + alpha) * avaSize
 		Lmin    = (1.0 - alpha) * avaSize
 	)
-	ColorSize := make([]int, len(txMap))
-	for i := 0; i < len(txMap); i++ {
-		ColorSize[i] = len(txMap[i])
+	ColorSize := make([]int, txMap.Size())
+	for i := 0; i < txMap.Size(); i++ {
+		ColorSize[i] = len(txMap.Get(i))
 	}
 	moveTo := func(n TxNode, dst int, childs, fathers []int) {
 		txID := g.NodeIndex(n)
@@ -309,8 +309,8 @@ func AdvancedMove(g TxGraph, K int, alpha float64, partitioning map[int64]int, c
 		}
 		return A, B, fatherColors, childColors
 	}
-	for i := len(txMap) - 1; i >= 0; i-- {
-		for _, n := range txMap[i] {
+	for i := txMap.Size() - 1; i >= 0; i-- {
+		for _, n := range txMap.Get(i) {
 			if g.IsBlockNode(n) {
 				continue
 			}
@@ -339,11 +339,11 @@ func AdvancedMove(g TxGraph, K int, alpha float64, partitioning map[int64]int, c
 			}
 		}
 	}
-	out := make([][]TxNode, len(txMap))
-	for _, l1 := range txMap {
-		for _, n := range l1 {
+	out := NewTransactionMap(txMap.blockNum, txMap.partitionNum, txMap.avasize)
+	for l1 := 0; l1 < txMap.Size(); l1++ {
+		for _, n := range txMap.Get(l1) {
 			color := partitioning[g.NodeIndex(n)]
-			out[color] = append(out[color], n)
+			out.Append(color, n)
 		}
 	}
 	// calculate colorMap's indegree
