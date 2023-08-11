@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	GRAPHSIZE  = 12000
+	GRAPHSIZE  = 60000
 	_split_num = 20
 )
 
