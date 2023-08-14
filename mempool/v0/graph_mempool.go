@@ -8,7 +8,7 @@ import (
 	txp "github.com/tendermint/tendermint/txgpartition"
 )
 
-var _ txp.TxGraph = (*CListMempool)(nil)
+// var _ txp.TxGraph = (*CListMempool)(nil)
 
 func MustMempoolTx(n txp.TxNode) *mempoolTx {
 	if o, ok := n.(*mempoolTx); ok {
@@ -23,3 +23,34 @@ func MustMempoolTx(n txp.TxNode) *mempoolTx {
 func (mmp *CListMempool) IsBlockNode(n txp.TxNode) bool {
 	return MustMempoolTx(n).isBlock
 }
+
+func (mmp *CListMempool) InDegree(n txp.TxNode) int {
+	return MustMempoolTx(n).inDegree
+}
+func (mmp *CListMempool) OutDegree(n txp.TxNode) int {
+	return MustMempoolTx(n).outDegree
+}
+func (mmp *CListMempool) DecOutDegree(n txp.TxNode) {
+	u := MustMempoolTx(n)
+	u.outDegree -= 1
+}
+func (mmp *CListMempool) Visit(n txp.TxNode) {
+	// DO NOTHING
+}
+func (mmp *CListMempool) Visited(n txp.TxNode) bool {
+	return false
+}
+func (mmp *CListMempool) NodeIndex(n txp.TxNode) int64 {
+	return MustMempoolTx(n).tx.TxId
+}
+
+/*
+func (mmp *CListMempool) QueryFather(n txp.TxNode) map[int64]txp.TxNode {
+	u := MustMempoolTx(n)
+	return u.parentTxs
+}
+func (mmp *CListMempool) QueryNodeChild(n txp.TxNode) map[int64]txp.TxNode {
+	u := MustMempoolTx(n)
+	return u.childTxs
+}
+*/
