@@ -3,6 +3,7 @@ package v0
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"sync"
 	"sync/atomic"
 
@@ -19,6 +20,7 @@ import (
 	"github.com/tendermint/tendermint/types"
 
 	"github.com/tendermint/tendermint/txgpartition"
+	"github.com/tendermint/tendermint/txgpartition/statustable"
 )
 
 // CListMempool is an ordered in-memory pool for transactions before they are
@@ -65,8 +67,9 @@ type CListMempool struct {
 	logger  log.Logger
 	metrics *mempool.Metrics
 	//modified by syy
-	blockStatusMap sync.Map // 区块状态映射表
-	txsConflictMap sync.Map // 事务依赖表
+	blockStatusMappingTable statustable.BlockStatusMappingTable // 区块状态映射表
+	txsConflictMap          sync.Map                            // 事务依赖表
+	txIdToMempoolTx         sync.Map                            //通过MemTx.id找对应的MempoolTx
 	// 看情况决定是New时传入或Set
 	timeStampGen txTimestamp.Generator
 	timeTxState  txTimestamp.TxState
@@ -97,14 +100,16 @@ func NewCListMempool(
 ) *CListMempool {
 
 	mp := &CListMempool{
-		config:        cfg,
-		proxyAppConn:  proxyAppConn,
-		txs:           clist.New(),
-		height:        height,
-		recheckCursor: nil,
-		recheckEnd:    nil,
-		logger:        log.NewNopLogger(),
-		metrics:       mempool.NopMetrics(),
+		config:                  cfg,
+		proxyAppConn:            proxyAppConn,
+		txs:                     clist.New(),
+		height:                  height,
+		recheckCursor:           nil,
+		recheckEnd:              nil,
+		logger:                  log.NewNopLogger(),
+		metrics:                 mempool.NopMetrics(),
+		txsConflictMap:          sync.Map{},
+		blockStatusMappingTable: *statustable.NewBlockStatusMappingTable(1, nil),
 	}
 
 	if cfg.CacheSize > 0 {
@@ -561,9 +566,9 @@ func (mem *CListMempool) resCbFirstTime(
 						}
 					}
 				} else { // 事务依赖表没有此项，查找区块状态映射表
-					if v, ok := mem.blockStatusMap.Load(txObAndAttr); ok {
+					if v, ok := mem.blockStatusMappingTable.Load(txObAndAttr); ok {
 						//区块状态映射表中的区块号作为前序依赖事务
-						blockId := v.(int64)
+						blockId := v
 						prevTx := &mempoolTx{
 							isBlock: true,
 						}
@@ -612,6 +617,7 @@ func (mem *CListMempool) resCbFirstTime(
 			}
 			memTx.senders.Store(peerID, true)
 			//modified by syy
+			mem.txIdToMempoolTx.Store(memTx.ID(), memTx)
 			mem.addTx(memTx)
 			mem.logger.Debug(
 				"added good transaction",
@@ -913,6 +919,22 @@ type mempoolTx struct {
 	isBlock   bool
 }
 
+func (memTx *mempoolTx) GetIndegree() int64 {
+	return int64(memTx.inDegree)
+}
+func (memTx *mempoolTx) GetOutDegree() int64 {
+	return int64(memTx.outDegree)
+}
+func (memTx *mempoolTx) GetParentTxs() []*mempoolTx {
+	return memTx.parentTxs
+}
+func (memTx *mempoolTx) GetChildTxs() []*mempoolTx {
+	return memTx.childTxs
+}
+func (memTx *mempoolTx) GetIsBlock() bool {
+	return memTx.isBlock
+}
+
 // Height returns the height for this transaction
 func (memTx *mempoolTx) Height() int64 {
 	return atomic.LoadInt64(&memTx.height)
@@ -939,4 +961,47 @@ func (memTx *mempoolTx) Less(other txgpartition.TxNode) bool {
 }
 func (memTx *mempoolTx) Equal(other txgpartition.TxNode) bool {
 	return memTx.ID() == other.ID()
+}
+
+func (mem *CListMempool) IsBlockNode(txNode txgpartition.TxNode) bool {
+	if v, ok := mem.txIdToMempoolTx.Load(txNode.ID()); ok {
+		mempoolTx := v.(*mempoolTx)
+		return mempoolTx.isBlock
+	} else {
+		fmt.Println("txNode is not in mempool")
+		return false
+	}
+}
+
+func (mem *CListMempool) InDegree(txNode txgpartition.TxNode) int {
+	if v, ok := mem.txIdToMempoolTx.Load(txNode.ID()); ok {
+		mempoolTx := v.(*mempoolTx)
+		return mempoolTx.inDegree
+	} else {
+		fmt.Println("txNode is not in mempool")
+		return -1
+	}
+}
+
+func (mem *CListMempool) OutDegree(txNode txgpartition.TxNode) int {
+	if v, ok := mem.txIdToMempoolTx.Load(txNode.ID()); ok {
+		mempoolTx := v.(*mempoolTx)
+		return mempoolTx.outDegree
+	} else {
+		fmt.Println("txNode is not in mempool")
+		return -1
+	}
+}
+
+func (mem *CListMempool) DecOutDegree(txNode txgpartition.TxNode) {
+	if v, ok := mem.txIdToMempoolTx.Load(txNode.ID()); ok {
+		mempoolTx := v.(*mempoolTx)
+		mempoolTx.outDegree -= 1
+	} else {
+		fmt.Println("txNode is not in mempool")
+	}
+}
+
+func (mem *CListMempool) NodeIndex(txNode txgpartition.TxNode) int64 {
+	return txNode.ID()
 }
