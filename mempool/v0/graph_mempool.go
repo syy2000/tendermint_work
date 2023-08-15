@@ -1,7 +1,10 @@
 package v0
 
 /*
-last modified : 2023/8/11 AM
+modified : 2023/8/11 AM
+name : donghao
+
+modified : 2023/8/15 AM
 name : donghao
 */
 import (
@@ -43,14 +46,27 @@ func (mmp *CListMempool) Visited(n txp.TxNode) bool {
 func (mmp *CListMempool) NodeIndex(n txp.TxNode) int64 {
 	return MustMempoolTx(n).tx.TxId
 }
+func (mmp *CListMempool) TxNodeNum() int {
+	return mmp.txNodeNum
+}
 
 /*
-func (mmp *CListMempool) QueryFather(n txp.TxNode) map[int64]txp.TxNode {
-	u := MustMempoolTx(n)
-	return u.parentTxs
-}
-func (mmp *CListMempool) QueryNodeChild(n txp.TxNode) map[int64]txp.TxNode {
-	u := MustMempoolTx(n)
-	return u.childTxs
-}
+	func (mmp *CListMempool) QueryFather(n txp.TxNode) map[int64]txp.TxNode {
+		u := MustMempoolTx(n)
+		return u.parentTxs
+	}
+
+	func (mmp *CListMempool) QueryNodeChild(n txp.TxNode) map[int64]txp.TxNode {
+		u := MustMempoolTx(n)
+		return u.childTxs
+	}
 */
+func (mmp *CListMempool) FindZeroOutDegree() []txp.TxNode {
+	out := make([]txp.TxNode, 0)
+	for _, n := range mmp.workspace {
+		if n.outDegree == 0 {
+			out = append(out, n)
+		}
+	}
+	return out
+}

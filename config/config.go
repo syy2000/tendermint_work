@@ -730,6 +730,8 @@ type MempoolConfig struct {
 	// has existed in the mempool at least TTLNumBlocks number of blocks or if
 	// it's insertion time into the mempool is beyond TTLDuration.
 	TTLNumBlocks int64 `mapstructure:"ttl-num-blocks"`
+
+	AvarageBlockSize int `mapstructure:"avarage_block_size"`
 }
 
 // DefaultMempoolConfig returns a default configuration for the Tendermint mempool
@@ -741,12 +743,13 @@ func DefaultMempoolConfig() *MempoolConfig {
 		WalPath:   "",
 		// Each signature verification takes .5ms, Size reduced until we implement
 		// ABCI Recheck
-		Size:         5000,
-		MaxTxsBytes:  1024 * 1024 * 1024, // 1GB
-		CacheSize:    10000,
-		MaxTxBytes:   1024 * 1024, // 1MB
-		TTLDuration:  0 * time.Second,
-		TTLNumBlocks: 0,
+		Size:             5000,
+		MaxTxsBytes:      1024 * 1024 * 1024, // 1GB
+		CacheSize:        10000,
+		MaxTxBytes:       1024 * 1024, // 1MB
+		TTLDuration:      0 * time.Second,
+		TTLNumBlocks:     0,
+		AvarageBlockSize: 1000,
 	}
 }
 
@@ -781,6 +784,9 @@ func (cfg *MempoolConfig) ValidateBasic() error {
 	}
 	if cfg.MaxTxBytes < 0 {
 		return errors.New("max_tx_bytes can't be negative")
+	}
+	if cfg.AvarageBlockSize < 0 {
+		return errors.New("avarage_block_size can't be negative")
 	}
 	return nil
 }

@@ -392,6 +392,8 @@ ttl-duration = "{{ .Mempool.TTLDuration }}"
 # it's insertion time into the mempool is beyond ttl-duration.
 ttl-num-blocks = {{ .Mempool.TTLNumBlocks }}
 
+avarage_block_size = {{.Mempool.AvarageBlockSize}}
+
 #######################################################
 ###         State Sync Configuration Options        ###
 #######################################################

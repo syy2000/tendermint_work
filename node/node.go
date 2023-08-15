@@ -405,6 +405,7 @@ func createMempoolAndMempoolReactor(
 		)
 
 		mp.SetLogger(logger)
+		mp.SetBlockSize(config.Mempool.AvarageBlockSize)
 
 		reactor := mempoolv0.NewReactor(
 			config.Mempool,
