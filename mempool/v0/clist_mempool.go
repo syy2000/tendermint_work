@@ -16,6 +16,7 @@ import (
 	"github.com/tendermint/tendermint/mempool/txTimestamp"
 	"github.com/tendermint/tendermint/p2p"
 	"github.com/tendermint/tendermint/proxy"
+	txp "github.com/tendermint/tendermint/txgpartition"
 	"github.com/tendermint/tendermint/types"
 
 	"github.com/tendermint/tendermint/txgpartition"
@@ -531,15 +532,10 @@ func (mem *CListMempool) resCbFirstTime(
 			mem.timeStampGen.AddTx(&tx)
 			txWithTimestamp := mem.timeStampGen.GetTx(tx.GetId())
 			tempTx := txWithTimestamp.(*types.MemTx)
-			memTx := &mempoolTx{
-				height:    mem.height,
-				gasWanted: r.CheckTx.GasWanted,
-				tx:        *tempTx,
-				//modified by syy
-				inDegree:  0,
-				outDegree: 0,
-			}
 
+			memTx := NewMempoolTx(tempTx)
+			memTx.height = mem.height
+			memTx.gasWanted = r.CheckTx.GasWanted
 			memTx.senders.Store(peerID, true)
 			//modified by syy
 			mem.txIdToMempoolTx.Store(memTx.ID(), memTx)
@@ -817,11 +813,7 @@ func (mem *CListMempool) recheckTxs() {
 
 // modified by syy
 func (mem *CListMempool) blockIdToMemTx(blockId int64) *mempoolTx {
-	memTx := &mempoolTx{
-		isBlock: true,
-	}
-	memTx.tx.SetTxId(blockId)
-	return memTx
+	return NewBlockMempoolTx(blockId)
 }
 
 //--------------------------------------------------------------------------------
@@ -839,9 +831,30 @@ type mempoolTx struct {
 	//conflictTxs []string // 记录的是冲突的事务id
 	inDegree  int
 	outDegree int
-	parentTxs []*mempoolTx
-	childTxs  []*mempoolTx
+	parentTxs map[int64]txp.TxNode
+	childTxs  map[int64]txp.TxNode
 	isBlock   bool
+}
+
+func NewBlockMempoolTx(id int64) *mempoolTx {
+	return &mempoolTx{
+		parentTxs: make(map[int64]txgpartition.TxNode),
+		childTxs:  make(map[int64]txgpartition.TxNode),
+		isBlock:   true,
+		tx: types.MemTx{
+			TxId: id,
+		},
+		senders: sync.Map{},
+	}
+}
+func NewMempoolTx(tx *types.MemTx) *mempoolTx {
+	return &mempoolTx{
+		parentTxs: make(map[int64]txgpartition.TxNode),
+		childTxs:  make(map[int64]txgpartition.TxNode),
+		isBlock:   false,
+		tx:        *tx,
+		senders:   sync.Map{},
+	}
 }
 
 // Height returns the height for this transaction

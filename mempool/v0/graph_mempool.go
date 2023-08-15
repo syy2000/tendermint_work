@@ -11,7 +11,7 @@ import (
 	txp "github.com/tendermint/tendermint/txgpartition"
 )
 
-// var _ txp.TxGraph = (*CListMempool)(nil)
+var _ txp.TxGraph = (*CListMempool)(nil)
 
 func MustMempoolTx(n txp.TxNode) *mempoolTx {
 	if o, ok := n.(*mempoolTx); ok {
@@ -49,19 +49,21 @@ func (mmp *CListMempool) NodeIndex(n txp.TxNode) int64 {
 func (mmp *CListMempool) TxNodeNum() int {
 	return mmp.txNodeNum
 }
+func (mmp *CListMempool) BlockNodeNum() int {
+	return mmp.blockNodeNum
+}
 
-/*
-	func (mmp *CListMempool) QueryFather(n txp.TxNode) map[int64]txp.TxNode {
-		u := MustMempoolTx(n)
-		return u.parentTxs
-	}
+func (mmp *CListMempool) QueryFather(n txp.TxNode) map[int64]txp.TxNode {
+	u := MustMempoolTx(n)
+	return u.parentTxs
+}
 
-	func (mmp *CListMempool) QueryNodeChild(n txp.TxNode) map[int64]txp.TxNode {
-		u := MustMempoolTx(n)
-		return u.childTxs
-	}
-*/
-func (mmp *CListMempool) FindZeroOutDegree() []txp.TxNode {
+func (mmp *CListMempool) QueryNodeChild(n txp.TxNode) map[int64]txp.TxNode {
+	u := MustMempoolTx(n)
+	return u.childTxs
+}
+
+func (mmp *CListMempool) FindZeroOutdegree() []txp.TxNode {
 	out := make([]txp.TxNode, 0)
 	for _, n := range mmp.workspace {
 		if n.outDegree == 0 {
