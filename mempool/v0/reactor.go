@@ -133,6 +133,7 @@ func (memR *Reactor) OnStart() error {
 		switch memR.TxState.(type) {
 		case *poH.PoHTxState:
 			go memR.handleBroadcastPoHStateRoutine()
+			go memR.handlePeerTx()
 		}
 	}
 	return nil
@@ -207,7 +208,7 @@ func (memR *Reactor) ReceiveEnvelope(e p2p.Envelope) {
 			}
 			//types.Tx转MemTx
 			// donghao : CheckTx ----> CheckTxReactor
-			err = memR.mempool.CheckTxReactor(ntx, nil, txInfo)
+			// err = memR.mempool.CheckTxReactor(ntx, nil, txInfo)
 			//err = memR.mempool.CheckTx(ntx, nil, txInfo)
 			if errors.Is(err, mempool.ErrTxInCache) {
 				memR.Logger.Debug("Tx already exists in cache", "tx", ntx.String())
@@ -360,4 +361,15 @@ func (memR *Reactor) broadcastPoHBlockPart(p *types.PoHBlockPart) {
 		ChannelID: mempool.TxBlockPartChannel,
 		Message:   p.ToProto(),
 	})
+}
+
+func (memR *Reactor) handlePeerTx() {
+	txChan := memR.TxState.GetTxChan()
+	for {
+		select {
+		case tx := <-txChan:
+			memTx := tx.(*types.MemTx)
+			memR.mempool.CheckTxReactor(memTx, nil, mempool.TxInfo{})
+		}
+	}
 }

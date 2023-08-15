@@ -15,4 +15,6 @@ type TxState interface {
 	SetSeed(seed *types.Seed) bool
 
 	Start() error
+
+	GetNowTimestamp() int64
 }

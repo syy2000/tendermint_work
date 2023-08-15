@@ -71,7 +71,9 @@ type CListMempool struct {
 	timeStampGen txTimestamp.Generator
 	timeTxState  txTimestamp.TxState
 
-	txPeerChan   chan types.TxWithTimestamp
+	txPeerChan chan types.TxWithTimestamp
+
+	txWithTimestampSlice []*mempoolTx
 }
 
 // modified by syy
@@ -303,7 +305,7 @@ func (mem *CListMempool) CheckTx(
 
 // TODO
 func (mem *CListMempool) CheckTxReactor(
-	rawtx types.Tx,
+	rawtx *types.MemTx,
 	cb func(*abci.Response),
 	txInfo mempool.TxInfo,
 ) error {
@@ -315,9 +317,10 @@ func (mem *CListMempool) CheckTxReactor(
 	//modified by syy donghao
 	//txSize := len(tx)
 	//txSize := len(tx.ToProto().OriginTx)
-	txSize := len(rawtx.OriginTx)
+	txSize := len(rawtx.OriginTx.OriginTx)
 	tx := types.MemTx{
-		OriginTx: rawtx,
+		OriginTx:   rawtx.OriginTx,
+		TxTimehash: rawtx.TxTimehash,
 		// modified by donghao
 		// TODO : fill Other Values ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 	}
@@ -509,9 +512,12 @@ func (mem *CListMempool) resCbFirstTime(
 				return
 			}
 			// timestamp
-			mem.timeStampGen.AddTx(&tx)
-			txWithTimestamp := mem.timeStampGen.GetTx(tx.GetId())
-			tempTx := txWithTimestamp.(*types.MemTx)
+			tempTx := &tx
+			if tx.GetTimestamp() == nil {
+				mem.timeStampGen.AddTx(&tx)
+				txWithTimestamp := mem.timeStampGen.GetTx(tx.GetId())
+				tempTx = txWithTimestamp.(*types.MemTx)
+			}
 			memTx := &mempoolTx{
 				height:    mem.height,
 				gasWanted: r.CheckTx.GasWanted,
@@ -544,7 +550,8 @@ func (mem *CListMempool) resCbFirstTime(
 								conflictMapValue.prevTx = conflictMapValue.curTx
 							}
 							//arr[1] = tx.TxId()
-							conflictMapValue.curTx = conflictMapValue.curTx[0:0] // 清空
+							// conflictMapValue.curTx = conflictMapValue.curTx[0:0] // 清空
+							conflictMapValue.curTx = make([]*mempoolTx, 0)
 							conflictMapValue.curTx = append(conflictMapValue.curTx, memTx)
 							conflictMapValue.operation = "write"
 							mem.txsConflictMap.Store(txObAndAttr, conflictMapValue)
@@ -552,7 +559,8 @@ func (mem *CListMempool) resCbFirstTime(
 					} else if conflictMapValue.operation == "write" { //上一个操作此对象+属性的是事务的写操作，与此事务不能并行
 						if latestTx.tx.TxId != tx.TxId { // 若上一个操作此对象+id的还是该事务，不用修改
 							conflictMapValue.prevTx = conflictMapValue.curTx
-							conflictMapValue.curTx = conflictMapValue.curTx[0:0]
+							// conflictMapValue.curTx = conflictMapValue.curTx[0:0]
+							conflictMapValue.curTx = make([]*mempoolTx, 0)
 							conflictMapValue.curTx = append(conflictMapValue.curTx, memTx)
 							mem.txsConflictMap.Store(txObAndAttr, conflictMapValue)
 						}
