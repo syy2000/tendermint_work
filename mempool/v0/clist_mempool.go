@@ -890,6 +890,14 @@ func (mem *CListMempool) blockIdToMemTx(blockId int64) *mempoolTx {
 	return memTx
 }
 
+func (mem *CListMempool) SetTimeStampGen(gen txTimestamp.Generator) {
+	mem.timeStampGen = gen
+}
+
+func (mem *CListMempool) SetTxState(s txTimestamp.TxState) {
+	mem.timeTxState = s
+}
+
 //--------------------------------------------------------------------------------
 
 // mempoolTx is a transaction that successfully ran

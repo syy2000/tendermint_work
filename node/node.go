@@ -55,6 +55,9 @@ import (
 	_ "net/http/pprof" //nolint: gosec // securely exposed on separate, optional port
 
 	_ "github.com/lib/pq" // provide the psql db driver
+
+	"github.com/tendermint/tendermint/mempool/txTimestamp"
+	"github.com/tendermint/tendermint/mempool/txTimestamp/poH"
 )
 
 //------------------------------------------------------------------------------
@@ -230,6 +233,9 @@ type Node struct {
 	blockIndexer      indexer.BlockIndexer
 	indexerService    *txindex.IndexerService
 	prometheusSrv     *http.Server
+
+	timestampGen txTimestamp.Generator
+	txState      txTimestamp.TxState
 }
 
 func initDBs(config *cfg.Config, dbProvider DBProvider) (blockStore *store.BlockStore, stateDB dbm.DB, err error) {
@@ -898,6 +904,17 @@ func NewNode(config *cfg.Config,
 			logger.Error("pprof server error", "err", http.ListenAndServe(config.RPC.PprofListenAddress, nil))
 		}()
 	}
+
+	poHMempool := poH.NewPoHMempool(logger)
+	poHGen := poH.NewPoHGenerator(10000, logger, poHMempool)
+	txState := poH.NewPoHTxState(poHMempool, poHGen, nodeKey.PrivKey, nodeKey.PrivKey.PubKey(), crypto.Address(nodeKey.ID()))
+	switch config.Mempool.Version {
+	case cfg.MempoolV0:
+		mempoolReactor.(*mempoolv0.Reactor).SetTxState(txState)
+		mempool.(*mempoolv0.CListMempool).SetTimeStampGen(poHGen)
+		mempool.(*mempoolv0.CListMempool).SetTxState(txState)
+	}
+
 	node := &Node{
 		config:        config,
 		genesisDoc:    genDoc,
@@ -926,6 +943,9 @@ func NewNode(config *cfg.Config,
 		indexerService:   indexerService,
 		blockIndexer:     blockIndexer,
 		eventBus:         eventBus,
+
+		timestampGen: poHGen,
+		txState:      txState,
 	}
 	node.BaseService = *service.NewBaseService(logger, "Node", node)
 
