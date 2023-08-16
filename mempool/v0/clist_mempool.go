@@ -79,11 +79,13 @@ type CListMempool struct {
 	txPeerChan chan types.TxWithTimestamp
 
 	// partition
-	txNodeNum    int
-	blockNodeNum int
-
-	avasize        int
+	avasize int
+	/*workspace  donghao*/
+	txNodeNum      int
+	blockNodeNum   int
 	partition_lock sync.Mutex
+	blockNodes     map[int64]*mempoolTx
+	/*workspace end*/
 }
 
 var _ mempool.Mempool = &CListMempool{}
