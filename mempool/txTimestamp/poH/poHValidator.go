@@ -3,6 +3,8 @@ package poH
 import (
 	"bytes"
 	"crypto/sha256"
+	"sync"
+
 	"github.com/tendermint/tendermint/libs/log"
 	"github.com/tendermint/tendermint/types"
 )
@@ -14,6 +16,8 @@ type PoHValidator struct {
 	lastTimestamp *types.PoHTimestamp
 
 	Logger log.Logger
+
+	mtx sync.RWMutex
 }
 
 func NewPoHValidator(logger log.Logger) *PoHValidator {
@@ -41,10 +45,14 @@ func (v *PoHValidator) SetSeed(seed *types.Seed) {
 }
 
 func (v *PoHValidator) GetNowTimestamp() types.TxTimestamp {
+	v.mtx.RLock()
+	defer v.mtx.RUnlock()
 	return v.lastTimestamp
 }
 
 func (v *PoHValidator) GetNextBlockHeight() int64 {
+	v.mtx.RLock()
+	defer v.mtx.RUnlock()
 	return v.Height
 }
 
@@ -63,7 +71,12 @@ func (v *PoHValidator) Validate(block types.TxBlock) bool {
 	if !f {
 		return false
 	}
+	v.mtx.Lock()
+	defer v.mtx.Unlock()
 	v.Height++
+	if b.PoHTimestamps != nil && len(b.PoHTimestamps) != 0 {
+		v.lastTimestamp = b.PoHTimestamps[len(b.PoHTimestamps)-1]
+	}
 	return true
 }
 

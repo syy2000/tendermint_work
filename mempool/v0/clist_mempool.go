@@ -307,7 +307,7 @@ func (mem *CListMempool) CheckTx(
 
 // TODO
 func (mem *CListMempool) CheckTxReactor(
-	rawtx types.Tx,
+	rawtx *types.MemTx,
 	cb func(*abci.Response),
 	txInfo mempool.TxInfo,
 ) error {
@@ -319,9 +319,10 @@ func (mem *CListMempool) CheckTxReactor(
 	//modified by syy donghao
 	//txSize := len(tx)
 	//txSize := len(tx.ToProto().OriginTx)
-	txSize := len(rawtx.OriginTx)
+	txSize := len(rawtx.OriginTx.OriginTx)
 	tx := types.MemTx{
-		OriginTx: rawtx,
+		OriginTx:   rawtx.OriginTx,
+		TxTimehash: rawtx.TxTimehash,
 		// modified by donghao
 		// TODO : fill Other Values ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 	}
@@ -513,9 +514,12 @@ func (mem *CListMempool) resCbFirstTime(
 				return
 			}
 			// timestamp
-			mem.timeStampGen.AddTx(&tx)
-			txWithTimestamp := mem.timeStampGen.GetTx(tx.GetId())
-			tempTx := txWithTimestamp.(*types.MemTx)
+			tempTx := &tx
+			if tx.GetTimestamp() == nil {
+				mem.timeStampGen.AddTx(&tx)
+				txWithTimestamp := mem.timeStampGen.GetTx(tx.GetId())
+				tempTx = txWithTimestamp.(*types.MemTx)
+			}
 			memTx := &mempoolTx{
 				height:    mem.height,
 				gasWanted: r.CheckTx.GasWanted,
@@ -896,6 +900,14 @@ func (mem *CListMempool) blockIdToMemTx(blockId int64) *mempoolTx {
 	}
 	memTx.tx.SetTxId(blockId)
 	return memTx
+}
+
+func (mem *CListMempool) SetTimeStampGen(gen txTimestamp.Generator) {
+	mem.timeStampGen = gen
+}
+
+func (mem *CListMempool) SetTxState(s txTimestamp.TxState) {
+	mem.timeTxState = s
 }
 
 //--------------------------------------------------------------------------------

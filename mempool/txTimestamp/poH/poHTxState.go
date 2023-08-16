@@ -274,3 +274,16 @@ func (s *PoHTxState) handleBlock(src p2p.ID, b *types.PoHBlock) (bool, error) {
 	}
 	return true, nil
 }
+
+func (s *PoHTxState) GetNowTimestamp() int64 {
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
+	now := s.mempool.GetNowTimestamp()
+	for _, v := range s.PoHValidatorMap {
+		t := v.GetNowTimestamp().GetTimestamp()
+		if now > t {
+			now = t
+		}
+	}
+	return now
+}
