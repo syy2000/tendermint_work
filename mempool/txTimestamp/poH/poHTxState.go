@@ -32,11 +32,12 @@ func NewMessageCache() *MessageCache {
 }
 
 type PoHTxState struct {
-	PoHValidatorMap map[p2p.ID]*PoHValidator
-	ValidatorMap    map[p2p.ID]*types.Validator
-	cache           map[p2p.ID]*MessageCache
-	mempool         *PoHMempool
-	gen             *PoHGenerator
+	PoHValidatorMap     map[p2p.ID]*PoHValidator
+	ValidatorMap        map[p2p.ID]*types.Validator
+	cache               map[p2p.ID]*MessageCache
+	PoHValidatorTimeMap map[p2p.ID]int64
+	mempool             *PoHMempool
+	gen                 *PoHGenerator
 	// 来自其他节点的消息输入
 	MessageChan chan *types.TxMessage
 
@@ -56,6 +57,8 @@ type PoHTxState struct {
 
 	mtx sync.Mutex
 	service.BaseService
+
+	txDone *TxDone
 }
 
 func NewPoHTxState(
@@ -70,6 +73,7 @@ func NewPoHTxState(
 	s.gen = gen
 	s.PoHValidatorMap = make(map[p2p.ID]*PoHValidator)
 	s.ValidatorMap = make(map[p2p.ID]*types.Validator)
+	s.PoHValidatorTimeMap = make(map[p2p.ID]int64)
 	s.cache = make(map[p2p.ID]*MessageCache)
 	s.MessageChan = make(chan *types.TxMessage, MessageChanMax)
 	s.TxWithTimestampChan = make(chan types.TxWithTimestamp, TxWithTimestampChanMax)
@@ -80,6 +84,8 @@ func NewPoHTxState(
 	s.address = address
 
 	s.OutPoHBlockPartSetChan = make(chan *types.PoHBlockPartSet, MessageChanMax)
+
+	s.txDone = gen.txDone
 	return s
 }
 
@@ -95,6 +101,7 @@ func (s *PoHTxState) AddValidator(validator *types.Validator) bool {
 	s.PoHValidatorMap[peerID] = v
 	s.ValidatorMap[peerID] = validator
 	s.cache[peerID] = NewMessageCache()
+	s.PoHValidatorTimeMap[peerID] = v.GetNowTimestamp().GetTimestamp()
 	return true
 }
 
@@ -108,6 +115,7 @@ func (s *PoHTxState) RemoveValidator(peerID p2p.ID) bool {
 	delete(s.PoHValidatorMap, peerID)
 	delete(s.ValidatorMap, peerID)
 	delete(s.cache, peerID)
+	delete(s.PoHValidatorTimeMap, peerID)
 	return true
 }
 
@@ -121,8 +129,9 @@ func (s *PoHTxState) AddMessage(message *types.TxMessage) {
 
 func (s *PoHTxState) SetSeed(seed *types.Seed) bool {
 	s.seed = seed
-	for _, v := range s.PoHValidatorMap {
+	for id, v := range s.PoHValidatorMap {
 		v.SetSeed(seed)
+		s.PoHValidatorTimeMap[id] = seed.Round
 	}
 	s.mempool.SetSeed(seed)
 	s.Height = seed.Height
@@ -265,13 +274,20 @@ func (s *PoHTxState) handleBlock(src p2p.ID, b *types.PoHBlock) (bool, error) {
 	}
 	// 输出，需要改timestamp到tx，或者把Tx结构定下来也可以
 	for _, tx := range b.PoHTimestamps {
-		s.TxWithTimestampChan <- &types.MemTx{
+		memTx := &types.MemTx{
 			OriginTx: types.Tx{
 				OriginTx:   tx.Message,
 				TxTimehash: tx,
 			},
 		}
+		memTx.SetCallBack(func() {
+			s.txDone.Done(memTx)
+		})
+		s.TxWithTimestampChan <- memTx
 	}
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
+	s.PoHValidatorTimeMap[src] = v.lastTimestamp.GetTimestamp()
 	return true, nil
 }
 
@@ -279,8 +295,14 @@ func (s *PoHTxState) GetNowTimestamp() int64 {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 	now := s.mempool.GetNowTimestamp()
-	for _, v := range s.PoHValidatorMap {
-		t := v.GetNowTimestamp().GetTimestamp()
+	for _, v := range s.PoHValidatorTimeMap {
+		t := v
+		if now > t {
+			now = t
+		}
+	}
+	t, ok := s.txDone.GetNowMin()
+	if ok {
 		if now > t {
 			now = t
 		}

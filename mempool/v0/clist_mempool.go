@@ -2,6 +2,7 @@ package v0
 
 import (
 	"bytes"
+	"container/heap"
 	"errors"
 	"sync"
 	"sync/atomic"
@@ -74,6 +75,10 @@ type CListMempool struct {
 	timeTxState  txTimestamp.TxState
 
 	txPeerChan chan types.TxWithTimestamp
+
+	memTxHeap *MemTxHeap
+	lastTime  int64
+	heapMtx   sync.RWMutex
 }
 
 // modified by syy
@@ -109,7 +114,11 @@ func NewCListMempool(
 		metrics:                 mempool.NopMetrics(),
 		txsConflictMap:          sync.Map{},
 		blockStatusMappingTable: *statustable.NewBlockStatusMappingTable(1, nil),
+
+		memTxHeap: &MemTxHeap{},
 	}
+
+	heap.Init(mp.memTxHeap)
 
 	if cfg.CacheSize > 0 {
 		mp.cache = mempool.NewLRUTxCache(cfg.CacheSize)
@@ -528,100 +537,101 @@ func (mem *CListMempool) resCbFirstTime(
 				inDegree:  0,
 				outDegree: 0,
 			}
-			//modified by syy
-			//查找事务依赖表，找到“对象id+属性”的前序依赖
-			for index, txObAndAttr := range tx.TxObAndAttr {
-				op := tx.TxOp[index] // 读/写操作
-				if v, ok := mem.txsConflictMap.Load(txObAndAttr); ok {
-					//arr := strings.Split(v.(string), " ")
+			// //modified by syy
+			// //查找事务依赖表，找到“对象id+属性”的前序依赖
+			// for index, txObAndAttr := range tx.TxObAndAttr {
+			// 	op := tx.TxOp[index] // 读/写操作
+			// 	if v, ok := mem.txsConflictMap.Load(txObAndAttr); ok {
+			// 		//arr := strings.Split(v.(string), " ")
 
-					// arr[0]: 属性值 arr[1]: 操作事务 arr[2]: 前序依赖事务 arr[3]: 读写操作
-					memTx.isBlock = false
-					//memTx.tx.SetTxId(1)
-					conflictMapValue := v.(*txsConflictMapValue)
-					txArr := conflictMapValue.curTx
-					latestTx := txArr[len(txArr)-1] // 最近操作此项的事务
-					if conflictMapValue.operation == "read" {
-						if op == "read" && latestTx.tx.TxId != tx.TxId { // 直接加入，与现有的读并行
-							conflictMapValue.curTx = append(conflictMapValue.curTx, memTx)
-							mem.txsConflictMap.Store(txObAndAttr, conflictMapValue)
-						} else if op == "write" { // 该操作为写操作，与前面不能并行
-							if latestTx.tx.TxId == tx.TxId {
-								conflictMapValue.prevTx = conflictMapValue.curTx[:len(conflictMapValue.curTx)-1]
-							} else {
-								conflictMapValue.prevTx = conflictMapValue.curTx
-							}
-							//arr[1] = tx.TxId()
-							conflictMapValue.curTx = []*mempoolTx{memTx}
-							// conflictMapValue.curTx = conflictMapValue.curTx[0:0] // 清空
-							// conflictMapValue.curTx = append(conflictMapValue.curTx, memTx)
-							conflictMapValue.operation = "write"
-							mem.txsConflictMap.Store(txObAndAttr, conflictMapValue)
-						}
-					} else if conflictMapValue.operation == "write" { //上一个操作此对象+属性的是事务的写操作，与此事务不能并行
-						if latestTx.tx.TxId != tx.TxId { // 若上一个操作此对象+id的还是该事务，不用修改
-							conflictMapValue.prevTx = conflictMapValue.curTx
-							conflictMapValue.curTx = []*mempoolTx{memTx}
-							// conflictMapValue.curTx = conflictMapValue.curTx[0:0]
-							// conflictMapValue.curTx = append(conflictMapValue.curTx, memTx)
-							conflictMapValue.operation = op
-							mem.txsConflictMap.Store(txObAndAttr, conflictMapValue)
-						}
-					}
-				} else { // 事务依赖表没有此项，查找区块状态映射表
-					if v, ok := mem.blockStatusMappingTable.Load(txObAndAttr); ok {
-						//区块状态映射表中的区块号作为前序依赖事务
-						blockId := v
-						prevTx := &mempoolTx{
-							isBlock: true,
-						}
-						prevTx.tx.SetTxId(blockId)
-						conflictMapValue := &txsConflictMapValue{
-							attrValue: "",
-							curTx:     []*mempoolTx{memTx},
-							prevTx:    []*mempoolTx{prevTx},
-							operation: op,
-						}
-						mem.txsConflictMap.Store(txObAndAttr, conflictMapValue) // 存入事务依赖表
-					} else { // 事务依赖表和区块映射表均没有此项，新增至事务依赖表
-						conflictMapValue := &txsConflictMapValue{
-							attrValue: "",
-							curTx:     []*mempoolTx{memTx},
-							// prevTx:    []*mempoolTx{prevTx},
-							operation: op,
-						}
-						mem.txsConflictMap.Store(txObAndAttr, conflictMapValue)
-					}
-				}
-			}
-			//modified by syy
-			//生成结点的邻接关系
-			for _, txObAndAttr := range tx.TxObAndAttr {
-				if v, ok := mem.txsConflictMap.Load(txObAndAttr); ok {
-					//arr := strings.Split(v.(string), " ")
-					conflictMapValue := v.(*txsConflictMapValue)
-					//txArr := conflictMapValue.curTx
-					prevTxs := conflictMapValue.prevTx //当前事务在此对象+属性上的前序依赖事务
-					for _, prevTx := range prevTxs {
-						// if !contains(memTx.conflictTxs, prevTx){
-						// 	memTx.conflictTxs = append(memTx.conflictTxs, prevTx)
-						// }
-						if !containsTx(memTx.parentTxs, prevTx) {
-							memTx.parentTxs = append(memTx.parentTxs, prevTx)
-							memTx.outDegree += 1
-						}
-						//根据事务id找到对应的mempoolTx
-						if !containsTx(prevTx.childTxs, memTx) {
-							prevTx.childTxs = append(prevTx.childTxs, memTx)
-							prevTx.inDegree += 1
-						}
-					}
-				}
-			}
+			// 		// arr[0]: 属性值 arr[1]: 操作事务 arr[2]: 前序依赖事务 arr[3]: 读写操作
+			// 		memTx.isBlock = false
+			// 		//memTx.tx.SetTxId(1)
+			// 		conflictMapValue := v.(*txsConflictMapValue)
+			// 		txArr := conflictMapValue.curTx
+			// 		latestTx := txArr[len(txArr)-1] // 最近操作此项的事务
+			// 		if conflictMapValue.operation == "read" {
+			// 			if op == "read" && latestTx.tx.TxId != tx.TxId { // 直接加入，与现有的读并行
+			// 				conflictMapValue.curTx = append(conflictMapValue.curTx, memTx)
+			// 				mem.txsConflictMap.Store(txObAndAttr, conflictMapValue)
+			// 			} else if op == "write" { // 该操作为写操作，与前面不能并行
+			// 				if latestTx.tx.TxId == tx.TxId {
+			// 					conflictMapValue.prevTx = conflictMapValue.curTx[:len(conflictMapValue.curTx)-1]
+			// 				} else {
+			// 					conflictMapValue.prevTx = conflictMapValue.curTx
+			// 				}
+			// 				//arr[1] = tx.TxId()
+			// 				conflictMapValue.curTx = []*mempoolTx{memTx}
+			// 				// conflictMapValue.curTx = conflictMapValue.curTx[0:0] // 清空
+			// 				// conflictMapValue.curTx = append(conflictMapValue.curTx, memTx)
+			// 				conflictMapValue.operation = "write"
+			// 				mem.txsConflictMap.Store(txObAndAttr, conflictMapValue)
+			// 			}
+			// 		} else if conflictMapValue.operation == "write" { //上一个操作此对象+属性的是事务的写操作，与此事务不能并行
+			// 			if latestTx.tx.TxId != tx.TxId { // 若上一个操作此对象+id的还是该事务，不用修改
+			// 				conflictMapValue.prevTx = conflictMapValue.curTx
+			// 				conflictMapValue.curTx = []*mempoolTx{memTx}
+			// 				// conflictMapValue.curTx = conflictMapValue.curTx[0:0]
+			// 				// conflictMapValue.curTx = append(conflictMapValue.curTx, memTx)
+			// 				conflictMapValue.operation = op
+			// 				mem.txsConflictMap.Store(txObAndAttr, conflictMapValue)
+			// 			}
+			// 		}
+			// 	} else { // 事务依赖表没有此项，查找区块状态映射表
+			// 		if v, ok := mem.blockStatusMappingTable.Load(txObAndAttr); ok {
+			// 			//区块状态映射表中的区块号作为前序依赖事务
+			// 			blockId := v
+			// 			prevTx := &mempoolTx{
+			// 				isBlock: true,
+			// 			}
+			// 			prevTx.tx.SetTxId(blockId)
+			// 			conflictMapValue := &txsConflictMapValue{
+			// 				attrValue: "",
+			// 				curTx:     []*mempoolTx{memTx},
+			// 				prevTx:    []*mempoolTx{prevTx},
+			// 				operation: op,
+			// 			}
+			// 			mem.txsConflictMap.Store(txObAndAttr, conflictMapValue) // 存入事务依赖表
+			// 		} else { // 事务依赖表和区块映射表均没有此项，新增至事务依赖表
+			// 			conflictMapValue := &txsConflictMapValue{
+			// 				attrValue: "",
+			// 				curTx:     []*mempoolTx{memTx},
+			// 				// prevTx:    []*mempoolTx{prevTx},
+			// 				operation: op,
+			// 			}
+			// 			mem.txsConflictMap.Store(txObAndAttr, conflictMapValue)
+			// 		}
+			// 	}
+			// }
+			// //modified by syy
+			// //生成结点的邻接关系
+			// for _, txObAndAttr := range tx.TxObAndAttr {
+			// 	if v, ok := mem.txsConflictMap.Load(txObAndAttr); ok {
+			// 		//arr := strings.Split(v.(string), " ")
+			// 		conflictMapValue := v.(*txsConflictMapValue)
+			// 		//txArr := conflictMapValue.curTx
+			// 		prevTxs := conflictMapValue.prevTx //当前事务在此对象+属性上的前序依赖事务
+			// 		for _, prevTx := range prevTxs {
+			// 			// if !contains(memTx.conflictTxs, prevTx){
+			// 			// 	memTx.conflictTxs = append(memTx.conflictTxs, prevTx)
+			// 			// }
+			// 			if !containsTx(memTx.parentTxs, prevTx) {
+			// 				memTx.parentTxs = append(memTx.parentTxs, prevTx)
+			// 				memTx.outDegree += 1
+			// 			}
+			// 			//根据事务id找到对应的mempoolTx
+			// 			if !containsTx(prevTx.childTxs, memTx) {
+			// 				prevTx.childTxs = append(prevTx.childTxs, memTx)
+			// 				prevTx.inDegree += 1
+			// 			}
+			// 		}
+			// 	}
+			// }
 			memTx.senders.Store(peerID, true)
 			//modified by syy
 			mem.txIdToMempoolTx.Store(memTx.ID(), memTx)
-			mem.addTx(memTx)
+			// mem.addTx(memTx)
+			mem.HandleTxToHeap(memTx)
 			mem.logger.Debug(
 				"added good transaction",
 				"tx", types.Tx(tx.OriginTx).Hash(),
@@ -908,6 +918,68 @@ func (mem *CListMempool) SetTimeStampGen(gen txTimestamp.Generator) {
 
 func (mem *CListMempool) SetTxState(s txTimestamp.TxState) {
 	mem.timeTxState = s
+}
+
+type MemTxHeap []*mempoolTx
+
+func (m MemTxHeap) Len() int {
+	return len(m)
+}
+
+func (m MemTxHeap) Less(i, j int) bool {
+	t1 := m[i].tx.GetTimestamp().GetTimestamp()
+	t2 := m[j].tx.GetTimestamp().GetTimestamp()
+	if t1 != t2 {
+		return t1 < t2
+	}
+	return m[i].tx.OriginTx.String() < m[j].tx.OriginTx.String()
+}
+
+func (m MemTxHeap) Swap(i, j int) {
+	m[i], m[j] = m[j], m[i]
+}
+
+func (m *MemTxHeap) Push(x any) {
+	*m = append(*m, x.(*mempoolTx))
+}
+
+func (m *MemTxHeap) Pop() any {
+	old := *m
+	n := len(old)
+	x := old[n-1]
+	*m = old[0 : n-1]
+	return x
+}
+
+func (mem *CListMempool) HandleTxToHeap(tx *mempoolTx) {
+	mem.heapMtx.Lock()
+	defer mem.heapMtx.Unlock()
+	h := mem.memTxHeap
+	now := mem.lastTime
+	txTime := tx.tx.GetTimestamp().GetTimestamp()
+	if txTime < now {
+		mem.addTx(tx)
+	} else {
+		heap.Push(h, tx)
+	}
+	tx.tx.Done()
+}
+
+func (mem *CListMempool) updateLastTime() {
+	mem.heapMtx.Lock()
+	defer mem.heapMtx.Unlock()
+	mem.lastTime = mem.timeTxState.GetNowTimestamp()
+	h := mem.memTxHeap
+	now := mem.lastTime
+	for h.Len() != 0 {
+		top := heap.Pop(h).(*mempoolTx)
+		if top.tx.GetTimestamp().GetTimestamp() < now {
+			mem.addTx(top)
+		} else {
+			heap.Push(h, top)
+			return
+		}
+	}
 }
 
 //--------------------------------------------------------------------------------

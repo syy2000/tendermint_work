@@ -48,6 +48,8 @@ type PoHGenerator struct {
 	txWithTimestampMap sync.Map
 	// map[int64]txxypes.TxWithTimestamp
 	mtx2 tmsync.Mutex
+
+	txDone *TxDone
 }
 
 func NewPoHGenerator(
@@ -67,6 +69,8 @@ func NewPoHGenerator(
 	gen.quit = make(chan struct{}, 5)
 	gen.Logger = log
 	gen.txWithTimestampMap = sync.Map{}
+
+	gen.txDone = NewTxDone()
 	return gen
 }
 
@@ -131,12 +135,15 @@ func (gen *PoHGenerator) generateNextRoundAndOutput() {
 
 		res := gen.getPoHMessage()
 		//gen.OutChan <- res
-		gen.mempool.AddTimestamp(res)
 		if txOutFlag {
 			tx.SetTimestamp(res)
+			tx.SetCallBack(func() {
+				gen.txDone.Done(tx)
+			})
 			gen.TxOutChan <- tx
 			// gen.txWithTimestampMap[tx.GetId()] = tx
 		}
+		gen.mempool.AddTimestamp(res)
 	}
 }
 
