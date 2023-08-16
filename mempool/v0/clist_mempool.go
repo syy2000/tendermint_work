@@ -69,8 +69,9 @@ type CListMempool struct {
 	metrics *mempool.Metrics
 	//modified by syy
 	blockStatusMappingTable statustable.BlockStatusMappingTable // 区块状态映射表
-	txsConflictMap          sync.Map                            // 事务依赖表
-	txIdToMempoolTx         sync.Map                            //通过MemTx.id找对应的MempoolTx
+	//txsConflictMap          sync.Map                            // 事务依赖表
+	txsConflictMap  map[string]*txsConflictMapValue // 事务依赖表
+	txIdToMempoolTx sync.Map                        //通过MemTx.id找对应的MempoolTx
 	// 看情况决定是New时传入或Set
 	timeStampGen txTimestamp.Generator
 	timeTxState  txTimestamp.TxState
@@ -83,14 +84,6 @@ type CListMempool struct {
 
 	avasize        int
 	partition_lock sync.Mutex
-}
-
-// modified by syy
-type txsConflictMapValue struct {
-	attrValue string
-	curTx     []*mempoolTx
-	prevTx    []*mempoolTx
-	operation string
 }
 
 var _ mempool.Mempool = &CListMempool{}
@@ -116,7 +109,7 @@ func NewCListMempool(
 		recheckEnd:              nil,
 		logger:                  log.NewNopLogger(),
 		metrics:                 mempool.NopMetrics(),
-		txsConflictMap:          sync.Map{},
+		txsConflictMap:          make(map[string]*txsConflictMapValue),
 		blockStatusMappingTable: *statustable.NewBlockStatusMappingTable(statustable.UseSimpleMap, nil),
 
 		partition_lock: sync.Mutex{},
@@ -831,16 +824,14 @@ type mempoolTx struct {
 	//conflictTxs []string // 记录的是冲突的事务id
 	inDegree  int
 	outDegree int
-	parentTxs map[int64]txp.TxNode
-	childTxs  map[int64]txp.TxNode
+	parentTxs []txp.TxNode
+	childTxs  []txp.TxNode
 	isBlock   bool
 }
 
 func NewBlockMempoolTx(id int64) *mempoolTx {
 	return &mempoolTx{
-		parentTxs: make(map[int64]txgpartition.TxNode),
-		childTxs:  make(map[int64]txgpartition.TxNode),
-		isBlock:   true,
+		isBlock: true,
 		tx: types.MemTx{
 			TxId: id,
 		},
@@ -849,11 +840,9 @@ func NewBlockMempoolTx(id int64) *mempoolTx {
 }
 func NewMempoolTx(tx *types.MemTx) *mempoolTx {
 	return &mempoolTx{
-		parentTxs: make(map[int64]txgpartition.TxNode),
-		childTxs:  make(map[int64]txgpartition.TxNode),
-		isBlock:   false,
-		tx:        *tx,
-		senders:   sync.Map{},
+		isBlock: false,
+		tx:      *tx,
+		senders: sync.Map{},
 	}
 }
 
@@ -883,99 +872,4 @@ func (memTx *mempoolTx) Less(other txgpartition.TxNode) bool {
 }
 func (memTx *mempoolTx) Equal(other txgpartition.TxNode) bool {
 	return memTx.ID() == other.ID()
-}
-
-// donghao =========================================================
-
-func (mem *CListMempool) procTxDependency(memTx *mempoolTx) {
-	//fistly modified by syy
-	//查找事务依赖表，找到“对象id+属性”的前序依赖
-	for index, txObAndAttr := range memTx.tx.TxObAndAttr {
-		op := memTx.tx.TxOp[index] // 读/写操作
-		if v, ok := mem.txsConflictMap.Load(txObAndAttr); ok {
-			//arr := strings.Split(v.(string), " ")
-
-			// arr[0]: 属性值 arr[1]: 操作事务 arr[2]: 前序依赖事务 arr[3]: 读写操作
-			memTx.isBlock = false
-			//memTx.tx.SetTxId(1)
-			conflictMapValue := v.(*txsConflictMapValue)
-			txArr := conflictMapValue.curTx
-			latestTx := txArr[len(txArr)-1] // 最近操作此项的事务
-			if conflictMapValue.operation == "read" {
-				if op == "read" && latestTx.ID() != memTx.ID() { // 直接加入，与现有的读并行
-					conflictMapValue.curTx = append(conflictMapValue.curTx, memTx)
-					mem.txsConflictMap.Store(txObAndAttr, conflictMapValue)
-				} else if op == "write" { // 该操作为写操作，与前面不能并行
-					if latestTx.ID() == memTx.ID() {
-						conflictMapValue.prevTx = conflictMapValue.curTx[:len(conflictMapValue.curTx)-1]
-					} else {
-						conflictMapValue.prevTx = conflictMapValue.curTx
-					}
-					//arr[1] = tx.TxId()
-					conflictMapValue.curTx = []*mempoolTx{memTx}
-					// conflictMapValue.curTx = conflictMapValue.curTx[0:0] // 清空
-					// conflictMapValue.curTx = append(conflictMapValue.curTx, memTx)
-					conflictMapValue.operation = "write"
-					mem.txsConflictMap.Store(txObAndAttr, conflictMapValue)
-				}
-			} else if conflictMapValue.operation == "write" { //上一个操作此对象+属性的是事务的写操作，与此事务不能并行
-				if latestTx.ID() != memTx.ID() { // 若上一个操作此对象+id的还是该事务，不用修改
-					conflictMapValue.prevTx = conflictMapValue.curTx
-					conflictMapValue.curTx = []*mempoolTx{memTx}
-					// conflictMapValue.curTx = conflictMapValue.curTx[0:0]
-					// conflictMapValue.curTx = append(conflictMapValue.curTx, memTx)
-					conflictMapValue.operation = op
-					mem.txsConflictMap.Store(txObAndAttr, conflictMapValue)
-				}
-			}
-		} else { // 事务依赖表没有此项，查找区块状态映射表
-			if v, ok := mem.blockStatusMappingTable.Load(txObAndAttr); ok {
-				//区块状态映射表中的区块号作为前序依赖事务
-				blockId := v
-				prevTx := &mempoolTx{
-					isBlock: true,
-				}
-				prevTx.tx.SetTxId(blockId)
-				conflictMapValue := &txsConflictMapValue{
-					attrValue: "",
-					curTx:     []*mempoolTx{memTx},
-					prevTx:    []*mempoolTx{prevTx},
-					operation: op,
-				}
-				mem.txsConflictMap.Store(txObAndAttr, conflictMapValue) // 存入事务依赖表
-			} else { // 事务依赖表和区块映射表均没有此项，新增至事务依赖表
-				conflictMapValue := &txsConflictMapValue{
-					attrValue: "",
-					curTx:     []*mempoolTx{memTx},
-					// prevTx:    []*mempoolTx{prevTx},
-					operation: op,
-				}
-				mem.txsConflictMap.Store(txObAndAttr, conflictMapValue)
-			}
-		}
-	}
-	//modified by syy
-	//生成结点的邻接关系
-	for _, txObAndAttr := range memTx.tx.TxObAndAttr {
-		if v, ok := mem.txsConflictMap.Load(txObAndAttr); ok {
-			//arr := strings.Split(v.(string), " ")
-			conflictMapValue := v.(*txsConflictMapValue)
-			//txArr := conflictMapValue.curTx
-			prevTxs := conflictMapValue.prevTx //当前事务在此对象+属性上的前序依赖事务
-			for _, prevTx := range prevTxs {
-				// if !contains(memTx.conflictTxs, prevTx){
-				// 	memTx.conflictTxs = append(memTx.conflictTxs, prevTx)
-				// }
-				if _, ok := memTx.parentTxs[prevTx.ID()]; !ok {
-					memTx.parentTxs[prevTx.ID()] = prevTx
-					memTx.outDegree += 1
-				}
-				//根据事务id找到对应的mempoolTx
-				if _, ok := prevTx.childTxs[memTx.ID()]; !ok {
-					prevTx.childTxs[memTx.ID()] = memTx
-					prevTx.inDegree += 1
-				}
-			}
-		}
-	}
 }

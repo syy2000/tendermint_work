@@ -44,7 +44,7 @@ type TxGraph interface {
 	FindZeroOutdegree() []TxNode
 	// 节点的所有父节点；可以是乱序的
 	// 4. 不可以遍历所有节点寻找父节点，可以将父节点的指针暂存在数据结构中
-	QueryFather(TxNode) map[int64]TxNode
+	QueryFather(TxNode) []TxNode
 	// 节点的所有子节点；可以是乱序的
-	QueryNodeChild(TxNode) map[int64]TxNode
+	QueryNodeChild(TxNode) []TxNode
 }

@@ -18,8 +18,8 @@ type RandomSquare struct {
 	family                  []*SquareNode
 	indegrees               []int
 	outdegrees              []int
-	fatherNodes             []map[int64]txp.TxNode
-	childNodes              []map[int64]txp.TxNode
+	fatherNodes             [][]txp.TxNode
+	childNodes              [][]txp.TxNode
 	visitMap                map[int64]bool
 	size                    int
 	blockNodeFall           int
@@ -54,20 +54,15 @@ func (n *SquareNode) SetID(id int) {
 
 // =================== CREATE GRAPH =====================================
 func NewRandomSquare(n int) *RandomSquare {
-	u := &RandomSquare{
+	return &RandomSquare{
 		family:      make([]*SquareNode, n),
 		indegrees:   make([]int, n),
 		outdegrees:  make([]int, n),
-		fatherNodes: make([]map[int64]txp.TxNode, n),
-		childNodes:  make([]map[int64]txp.TxNode, n),
+		fatherNodes: make([][]txp.TxNode, n),
+		childNodes:  make([][]txp.TxNode, n),
 		visitMap:    map[int64]bool{},
 		size:        n,
 	}
-	for i := 0; i < n; i++ {
-		u.fatherNodes[i] = make(map[int64]txp.TxNode)
-		u.childNodes[i] = make(map[int64]txp.TxNode)
-	}
-	return u
 }
 func (rs *RandomSquare) RandomInit(blockRate float64) {
 	rand.Seed(time.Now().UnixNano())
@@ -86,8 +81,8 @@ func (rs *RandomSquare) RandomInit(blockRate float64) {
 			if Distance(rs.family[i], rs.family[j]) < TDis {
 				rs.outdegrees[j]++
 				rs.indegrees[i]++
-				rs.fatherNodes[j][int64(i)] = rs.family[i]
-				rs.childNodes[i][int64(j)] = rs.family[j]
+				rs.fatherNodes[j] = append(rs.fatherNodes[j], rs.family[i])
+				rs.childNodes[i] = append(rs.childNodes[i], rs.family[j])
 				rs.edgeNum++
 			}
 		}
@@ -154,9 +149,9 @@ func (rs *RandomSquare) FindZeroOutdegree() []txp.TxNode {
 	}
 	return out
 }
-func (rs *RandomSquare) QueryFather(n txp.TxNode) map[int64]txp.TxNode {
+func (rs *RandomSquare) QueryFather(n txp.TxNode) []txp.TxNode {
 	return rs.fatherNodes[n.ID()]
 }
-func (rs *RandomSquare) QueryNodeChild(n txp.TxNode) map[int64]txp.TxNode {
+func (rs *RandomSquare) QueryNodeChild(n txp.TxNode) []txp.TxNode {
 	return rs.childNodes[n.ID()]
 }

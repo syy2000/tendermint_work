@@ -81,13 +81,12 @@ func (am *AddressMap) AddNode(n *IDNode) {
 }
 func (am *AddressMap) BuildRelation(n *IDNode, u []*IDNode) {
 	for _, father := range u {
-		if _, ok := n.Father[father.ID()]; !ok {
-			n.OutDegree++
-			father.Indegreee++
-			n.Father[father.ID()] = father
-			father.Child[n.ID()] = n
-			am.edgeNum++
-		}
+		n.OutDegree++
+		father.Indegreee++
+		n.Father = append(n.Father, father)
+		father.Child = append(father.Child, n)
+		am.edgeNum++
+
 	}
 }
 
@@ -128,11 +127,11 @@ func (am *AddressMap) FindZeroOutdegree() (out []txgpartition.TxNode) {
 	}
 	return
 }
-func (am *AddressMap) QueryFather(n txgpartition.TxNode) map[int64]txgpartition.TxNode {
+func (am *AddressMap) QueryFather(n txgpartition.TxNode) []txgpartition.TxNode {
 	u := MustIDNode(n)
 	return u.Father
 }
-func (am *AddressMap) QueryNodeChild(n txgpartition.TxNode) map[int64]txgpartition.TxNode {
+func (am *AddressMap) QueryNodeChild(n txgpartition.TxNode) []txgpartition.TxNode {
 	u := MustIDNode(n)
 	return u.Child
 }

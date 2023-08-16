@@ -8,7 +8,7 @@ import (
 )
 
 var (
-	MAXACCOUNTNUM   = 100000
+	MAXACCOUNTNUM   = 200000
 	ACCOUNTSPLIT    = 6
 	READNUM         = ACCOUNTSPLIT / 2
 	ACCOUNTDURATION = MAXACCOUNTNUM / ACCOUNTSPLIT
@@ -18,7 +18,7 @@ type IDNode struct {
 	RIDs                 []int
 	WIDs                 []int
 	id                   int64
-	Father, Child        map[int64]txgpartition.TxNode
+	Father, Child        []txgpartition.TxNode
 	Indegreee, OutDegree int
 }
 
@@ -28,8 +28,8 @@ func NewIDNode(reads []int, writes []int, ID int64) *IDNode {
 	return &IDNode{
 		RIDs:   reads,
 		WIDs:   writes,
-		Father: make(map[int64]txgpartition.TxNode),
-		Child:  make(map[int64]txgpartition.TxNode),
+		Father: make([]txgpartition.TxNode, 0),
+		Child:  make([]txgpartition.TxNode, 0),
 		id:     ID,
 	}
 }

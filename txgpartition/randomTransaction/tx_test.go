@@ -9,9 +9,9 @@ import (
 )
 
 const (
-	_block_num = 15
+	_block_num = 30
 	_tx_num    = 60000
-	_split_num = 10
+	_split_num = 20
 )
 
 func TestTransaction(t *testing.T) {

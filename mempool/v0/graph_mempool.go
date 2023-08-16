@@ -53,12 +53,12 @@ func (mmp *CListMempool) BlockNodeNum() int {
 	return mmp.blockNodeNum
 }
 
-func (mmp *CListMempool) QueryFather(n txp.TxNode) map[int64]txp.TxNode {
+func (mmp *CListMempool) QueryFather(n txp.TxNode) []txp.TxNode {
 	u := MustMempoolTx(n)
 	return u.parentTxs
 }
 
-func (mmp *CListMempool) QueryNodeChild(n txp.TxNode) map[int64]txp.TxNode {
+func (mmp *CListMempool) QueryNodeChild(n txp.TxNode) []txp.TxNode {
 	u := MustMempoolTx(n)
 	return u.childTxs
 }
