@@ -57,6 +57,9 @@ func (m *PoHMempool) SetSeed(seed *types.Seed) {
 func (m *PoHMempool) AddTimestamp(t types.TxTimestamp) {
 	m.TxTimestampChan <- t
 	num := atomic.AddInt64(&m.txNum, 1)
+	m.mtx.Lock()
+	defer m.mtx.Unlock()
+	m.Round = t.GetTimestamp()
 	if num%TxNumOneBlock == 0 {
 		// 正好到整倍数
 		m.CreateBlockChan <- struct{}{}
@@ -76,4 +79,10 @@ func (m *PoHMempool) GetTimestamps() []*types.PoHTimestamp {
 	atomic.AddInt64(&m.txNum, -int64(l))
 	atomic.AddInt64(&m.Height, 1)
 	return res
+}
+
+func (m *PoHMempool) GetNowTimestamp() int64 {
+	m.mtx.Lock()
+	defer m.mtx.Unlock()
+	return m.Round
 }
