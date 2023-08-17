@@ -915,6 +915,13 @@ func NewNode(config *cfg.Config,
 		mempool.(*mempoolv0.CListMempool).SetTimeStampGen(poHGen)
 		mempool.(*mempoolv0.CListMempool).SetTxState(txState)
 	}
+	address := nodeKey.PrivKey.PubKey().Address()
+	_, validators := consensusState.GetValidators()
+	for _, v := range validators {
+		if bytes.Compare(address, v.Address) != 0 {
+			txState.AddValidator(v)
+		}
+	}
 
 	node := &Node{
 		config:        config,
