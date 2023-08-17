@@ -6,11 +6,10 @@ type txsConflictMapValue struct {
 	WL []*mempoolTx
 }
 
-func GenEdge(father, child *mempoolTx) {
-	father.childTxs = append(father.childTxs, child)
-	father.inDegree++
-	child.parentTxs = append(child.parentTxs, father)
-	child.outDegree++
+func (mem *CListMempool) ProcWorkspaceDependency() {
+	for _, tx := range mem.workspace {
+		mem.procTxDependency(tx)
+	}
 }
 
 // donghao =========================================================
@@ -108,4 +107,11 @@ func (mem *CListMempool) procTxDependency(memTx *mempoolTx) {
 	for _, father := range depMap {
 		GenEdge(father, memTx)
 	}
+}
+
+func GenEdge(father, child *mempoolTx) {
+	father.childTxs = append(father.childTxs, child)
+	father.inDegree++
+	child.parentTxs = append(child.parentTxs, father)
+	child.outDegree++
 }

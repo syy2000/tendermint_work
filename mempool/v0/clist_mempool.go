@@ -81,10 +81,11 @@ type CListMempool struct {
 	// partition
 	avasize int
 	/*workspace  donghao*/
-	txNodeNum      int
-	blockNodeNum   int
-	partition_lock sync.Mutex
-	blockNodes     map[int64]*mempoolTx
+	txNodeNum       int
+	blockNodeNum    int
+	partition_lock  sync.Mutex
+	blockNodes      map[int64]*mempoolTx
+	partitionResult *txgpartition.TransactionGraphPartitionResult
 	/*workspace end*/
 }
 
