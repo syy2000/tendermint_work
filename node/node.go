@@ -905,8 +905,9 @@ func NewNode(config *cfg.Config,
 		}()
 	}
 
-	poHMempool := poH.NewPoHMempool(logger)
-	poHGen := poH.NewPoHGenerator(10000, logger, poHMempool)
+	txTimeStamepLogger := logger.With("module", "txTimeStamep")
+	poHMempool := poH.NewPoHMempool(txTimeStamepLogger)
+	poHGen := poH.NewPoHGenerator(10000, txTimeStamepLogger, poHMempool)
 	txState := poH.NewPoHTxState(poHMempool, poHGen, nodeKey.PrivKey, nodeKey.PrivKey.PubKey(), crypto.Address(nodeKey.ID()))
 	switch config.Mempool.Version {
 	case cfg.MempoolV0:
