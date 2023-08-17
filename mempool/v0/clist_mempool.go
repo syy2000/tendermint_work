@@ -69,9 +69,7 @@ type CListMempool struct {
 	metrics *mempool.Metrics
 	//modified by syy
 	blockStatusMappingTable statustable.BlockStatusMappingTable // 区块状态映射表
-	//txsConflictMap          sync.Map                            // 事务依赖表
-	txsConflictMap  map[string]*txsConflictMapValue // 事务依赖表
-	txIdToMempoolTx sync.Map                        //通过MemTx.id找对应的MempoolTx
+	txIdToMempoolTx         sync.Map                            //通过MemTx.id找对应的MempoolTx
 	// 看情况决定是New时传入或Set
 	timeStampGen txTimestamp.Generator
 	timeTxState  txTimestamp.TxState
@@ -80,13 +78,20 @@ type CListMempool struct {
 
 	// partition
 	avasize int
+	alpha   float64
 	/*workspace  donghao*/
 	txNodeNum       int
 	blockNodeNum    int
 	partition_lock  sync.Mutex
+	reap_lock       sync.Mutex
 	blockNodes      map[int64]*mempoolTx
 	partitionResult *txgpartition.TransactionGraphPartitionResult
+	//txsConflictMap          sync.Map                            // 事务依赖表
+	txsConflictMap map[string]*txsConflictMapValue // 事务依赖表
 	/*workspace end*/
+	// only for test
+	blockIDCnter int64
+	blockIDMap   map[int]int64
 }
 
 var _ mempool.Mempool = &CListMempool{}
@@ -116,6 +121,11 @@ func NewCListMempool(
 		blockStatusMappingTable: *statustable.NewBlockStatusMappingTable(statustable.UseSimpleMap, nil),
 
 		partition_lock: sync.Mutex{},
+		reap_lock:      sync.Mutex{},
+
+		// only for test
+		blockIDCnter: height,
+		blockIDMap:   make(map[int]int64),
 	}
 
 	if cfg.CacheSize > 0 {
@@ -141,11 +151,6 @@ func (mem *CListMempool) EnableTxsAvailable() {
 // SetLogger sets the Logger.
 func (mem *CListMempool) SetLogger(l log.Logger) {
 	mem.logger = l
-}
-
-// donghao : set block size
-func (mem *CListMempool) SetBlockSize(s int) {
-	mem.avasize = s
 }
 
 // WithPreCheck sets a filter for the mempool to reject a tx if f(tx) returns

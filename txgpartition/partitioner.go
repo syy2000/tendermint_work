@@ -18,12 +18,13 @@ type (
 		partitioning *Partitioning
 		colorMap     *ColorMap
 		txMap        *TransactionMap
+		size         int
 	}
 )
 
 func NewTransactionGraphPartitioner(mode string, g TxGraph) *TransactionGraphPartitioner {
 	switch {
-	case mode == "normal&sm":
+	case mode == NORMAL_SM_MODE:
 		return &TransactionGraphPartitioner{
 			graph: g,
 			head:  Init_Partitioning,
@@ -31,7 +32,7 @@ func NewTransactionGraphPartitioner(mode string, g TxGraph) *TransactionGraphPar
 				SimpleMove,
 			},
 		}
-	case mode == "normal&am":
+	case mode == NORMAL_AM_MODE:
 		return &TransactionGraphPartitioner{
 			graph: g,
 			head:  Init_Partitioning,
@@ -59,15 +60,24 @@ func (p *TransactionGraphPartitioner) Partition(K int, alpha float64) *Transacti
 		partitioning: partitioning,
 		colorMap:     cm,
 		txMap:        tm,
+		size:         cm.size,
 	}
 }
 
 // ================ Result =================================
-func (p *TransactionGraphPartitionResult) ReapBlocks(n int) (int, [][]TxNode) {
+func (p *TransactionGraphPartitionResult) ReapBlocks(n int) (int, [][]TxNode, []int) {
 	n, outID := p.colorMap.ReapBlocks(n)
 	out := make([][]TxNode, n)
 	for i, id := range outID {
 		out[i] = p.txMap.Get(id)
 	}
-	return n, out
+	p.size -= n
+	return n, out, outID
+}
+func (p *TransactionGraphPartitionResult) Empty() bool {
+	return p.size <= 0
+}
+func (p *TransactionGraphPartitionResult) TxNodeColor(id int64) (int, bool) {
+	out, ok := p.partitioning.txColor[id]
+	return out, ok
 }

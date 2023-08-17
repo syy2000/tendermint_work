@@ -731,7 +731,9 @@ type MempoolConfig struct {
 	// it's insertion time into the mempool is beyond TTLDuration.
 	TTLNumBlocks int64 `mapstructure:"ttl-num-blocks"`
 
-	AvarageBlockSize int `mapstructure:"avarage_block_size"`
+	// 事务图划分
+	AvarageBlockSize int     `mapstructure:"avarage_block_size"`
+	PartitionDelta   float64 `mapstructure:"partition_delta"`
 }
 
 // DefaultMempoolConfig returns a default configuration for the Tendermint mempool
@@ -750,6 +752,7 @@ func DefaultMempoolConfig() *MempoolConfig {
 		TTLDuration:      0 * time.Second,
 		TTLNumBlocks:     0,
 		AvarageBlockSize: 1000,
+		PartitionDelta:   0.1,
 	}
 }
 
