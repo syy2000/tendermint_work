@@ -6,6 +6,7 @@ import (
 	abcicli "github.com/tendermint/tendermint/abci/client"
 	"github.com/tendermint/tendermint/abci/example/counter"
 	"github.com/tendermint/tendermint/abci/example/kvstore"
+	"github.com/tendermint/tendermint/abci/example/scoin"
 	"github.com/tendermint/tendermint/abci/example/test123"
 	"github.com/tendermint/tendermint/abci/types"
 	tmsync "github.com/tendermint/tendermint/libs/sync"
@@ -93,7 +94,8 @@ func DefaultClientCreator(addr, transport, dbDir string) ClientCreator {
 		return NewLocalClientCreator(types.NewBaseApplication())
 	case "test":
 		return NewLocalClientCreator(test123.NewApplication(dbDir))
-
+	case "coin":
+		return NewLocalClientCreator(scoin.NewApplication(dbDir))
 	default:
 		mustConnect := false // loop retrying
 		return NewRemoteClientCreator(addr, transport, mustConnect)

@@ -8,6 +8,7 @@ import (
 	abcicli "github.com/tendermint/tendermint/abci/client"
 	"github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/libs/log"
+	prototypes "github.com/tendermint/tendermint/proto/tendermint/types"
 )
 
 func startClient(abciType string) abcicli.Client {
@@ -43,7 +44,7 @@ func commit(client abcicli.Client, hashExp []byte) {
 }
 
 func deliverTx(client abcicli.Client, txBytes []byte, codeExp uint32, dataExp []byte) {
-	res, err := client.DeliverTxSync(types.RequestDeliverTx{Tx: txBytes})
+	res, err := client.DeliverTxSync(types.RequestDeliverTx{Tx: &prototypes.Tx{OriginTx: txBytes}})
 	if err != nil {
 		panicf("client error: %v", err)
 	}

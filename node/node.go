@@ -58,6 +58,9 @@ import (
 
 	"github.com/tendermint/tendermint/mempool/txTimestamp"
 	"github.com/tendermint/tendermint/mempool/txTimestamp/poH"
+
+	"github.com/tendermint/tendermint/abci/example/scoin"
+	"github.com/tendermint/tendermint/abci/example/test123"
 )
 
 //------------------------------------------------------------------------------
@@ -413,6 +416,11 @@ func createMempoolAndMempoolReactor(
 		mp.SetLogger(logger)
 		mp.SetBlockSize(config.Mempool.AvarageBlockSize)
 		mp.SetAlpha(config.Mempool.PartitionDelta)
+		if config.ABCI == "test123" {
+			mp.SetRWer(test123.RWAnalyse)
+		} else {
+			mp.SetRWer(scoin.RWAnalyse)
+		}
 
 		reactor := mempoolv0.NewReactor(
 			config.Mempool,
@@ -1037,7 +1045,7 @@ func (n *Node) OnStart() error {
 	})
 	n.txState.Start()
 
-	go func(){
+	go func() {
 		// 在相同时间开始
 		n.timestampGen.GenStart()
 	}()

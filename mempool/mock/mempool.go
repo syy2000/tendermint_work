@@ -39,5 +39,6 @@ func (Mempool) SizeBytes() int64              { return 0 }
 func (Mempool) TxsFront() *clist.CElement    { return nil }
 func (Mempool) TxsWaitChan() <-chan struct{} { return nil }
 
-func (Mempool) InitWAL() error { return nil }
-func (Mempool) CloseWAL()      {}
+func (Mempool) InitWAL() error                      { return nil }
+func (Mempool) CloseWAL()                           {}
+func (Mempool) ReapBlocks(_ int) (int, []types.Txs) { return 0, []types.Txs{} }

@@ -78,7 +78,6 @@ type CListMempool struct {
 	txPeerChan chan types.TxWithTimestamp
 
 	// partition
-
 	avasize int
 	alpha   float64
 	/*workspace  donghao*/
@@ -95,9 +94,13 @@ type CListMempool struct {
 	blockIDCnter int64
 	blockIDMap   map[int]int64
 
+	// txHeap
 	memTxHeap *MemTxHeap
 	lastTime  int64
 	heapMtx   sync.RWMutex
+
+	// txRw
+	rwAnalyse func(types.Tx) ([]string, []string, error)
 }
 
 var _ mempool.Mempool = &CListMempool{}
@@ -151,6 +154,10 @@ func NewCListMempool(
 	}
 
 	return mp
+}
+
+func (mem *CListMempool) SetRWer(rwAnalyse func(types.Tx) ([]string, []string, error)) {
+	mem.rwAnalyse = rwAnalyse
 }
 
 // NOTE: not thread safe - should only be called once, on startup
@@ -266,38 +273,36 @@ func (mem *CListMempool) CheckTx(
 	//modified by syy donghao
 	//txSize := len(tx)
 	//txSize := len(tx.ToProto().OriginTx)
-	txSize := len(originTx)
 	mmpOriginTx := types.Tx{
-		OriginTx: originTx,
-		// modified by donghao
-		// TODO : fill TxTimehash ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+		OriginTx:   originTx,
 		TxTimehash: nil,
 	}
-	/*
-		来自其他节点的事务使用示例
-		与本节点基本相同，首先需要得到Chan
-		txTimeStamp:=mem.timeTxState.GetTxChan()
-		之后即可使用chan获取tx
-		txWithTimestamp:=<-chan
-		tx:=txWithTimestamp.(types.Tx)
-	*/
-	tx := types.MemTx{
-		OriginTx: mmpOriginTx,
-		// modified by donghao
-		// TODO : fill Other Values ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-	}
 
-	if err := mem.isFull(txSize); err != nil {
+	// 读写集分析
+	ops, values, err := mem.rwAnalyse(mmpOriginTx)
+	if err != nil {
 		return err
 	}
 
-	if txSize > mem.config.MaxTxBytes {
-		return mempool.ErrTxTooLarge{
-			Max:    mem.config.MaxTxBytes,
-			Actual: txSize,
-		}
+	tx := types.MemTx{
+		OriginTx: mmpOriginTx,
+		// modified by donghao
+		TxOp:        ops,
+		TxObAndAttr: values,
 	}
+	/*
+		txSize := len(originTx)
+		if err := mem.isFull(txSize); err != nil {
+			return err
+		}
 
+		if txSize > mem.config.MaxTxBytes {
+			return mempool.ErrTxTooLarge{
+				Max:    mem.config.MaxTxBytes,
+				Actual: txSize,
+			}
+		}
+	*/
 	if mem.preCheck != nil {
 		if err := mem.preCheck(tx.OriginTx); err != nil {
 			return mempool.ErrPreCheck{
@@ -346,25 +351,32 @@ func (mem *CListMempool) CheckTxReactor(
 	//modified by syy donghao
 	//txSize := len(tx)
 	//txSize := len(tx.ToProto().OriginTx)
-	txSize := len(rawtx.OriginTx.OriginTx)
-	tx := types.MemTx{
-		OriginTx:   rawtx.OriginTx,
-		TxTimehash: rawtx.TxTimehash,
-		// modified by donghao
-		// TODO : fill Other Values ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-	}
-
-	if err := mem.isFull(txSize); err != nil {
+	// 读写集分析
+	ops, values, err := mem.rwAnalyse(rawtx.OriginTx)
+	if err != nil {
 		return err
 	}
 
-	if txSize > mem.config.MaxTxBytes {
-		return mempool.ErrTxTooLarge{
-			Max:    mem.config.MaxTxBytes,
-			Actual: txSize,
-		}
+	tx := types.MemTx{
+		OriginTx: rawtx.OriginTx,
+		// modified by donghaos
+		TxOp:        ops,
+		TxObAndAttr: values,
 	}
 
+	/*
+		txSize := len(rawtx.OriginTx.OriginTx)
+		if err := mem.isFull(txSize); err != nil {
+			return err
+		}
+
+		if txSize > mem.config.MaxTxBytes {
+			return mempool.ErrTxTooLarge{
+				Max:    mem.config.MaxTxBytes,
+				Actual: txSize,
+			}
+		}
+	*/
 	if mem.preCheck != nil {
 		if err := mem.preCheck(tx.OriginTx); err != nil {
 			return mempool.ErrPreCheck{
@@ -458,11 +470,18 @@ func (mem *CListMempool) reqResCb(
 // Called from:
 //   - resCbFirstTime (lock not held) if tx is valid
 func (mem *CListMempool) addTx(memTx *mempoolTx) {
-	e := mem.txs.PushBack(memTx)
+	//modified by donghao  TODO
+	mem.workspace = append(mem.workspace, memTx)
 	// modified by syy
-	mem.txsMap.Store(memTx.tx.TxId, e)
+	mem.txsMap.Store(memTx.tx.TxId, memTx)
 	atomic.AddInt64(&mem.txsBytes, int64(len(memTx.tx.OriginTx.OriginTx)))
 	mem.metrics.TxSizeBytes.Observe(float64(len(memTx.tx.OriginTx.OriginTx)))
+	/*
+		e := mem.txs.PushBack(memTx)
+		mem.txsMap.Store(memTx.tx.TxId, e)
+		atomic.AddInt64(&mem.txsBytes, int64(len(memTx.tx.OriginTx.OriginTx)))
+		mem.metrics.TxSizeBytes.Observe(float64(len(memTx.tx.OriginTx.OriginTx)))
+	*/
 }
 
 // Called from:

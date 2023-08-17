@@ -26,10 +26,15 @@ func (mem *CListMempool) SetAlpha(alpha float64) {
 
 // 1. 从工作区中取出至多n个区块（事务集）
 // 2. 如果工作区中所有区块都被清空，则
-func (mem *CListMempool) ReapBlocks(n int) (int, [][]types.Tx) {
+func (mem *CListMempool) ReapBlocks(n int) (int, []types.Txs) {
 	// reap_lock ： 保证取区块是串行的
 	mem.reap_lock.Lock()
 	defer mem.reap_lock.Unlock()
+
+	if mem.partitionResult == nil || mem.partitionResult.Empty() {
+		mem.partition_lock.Lock()
+		mem.FillWorkspace()
+	}
 
 	// partition_lock ： 保证取区块与划分新图是串行的
 	mem.partition_lock.Lock()
@@ -49,10 +54,10 @@ func (mem *CListMempool) ReapBlocks(n int) (int, [][]types.Tx) {
 	start := time.Now()
 	reap_size_cnt := 0
 	n, outTxNodeSets, colors := mem.partitionResult.ReapBlocks(n)
-	out := make([][]types.Tx, n)
+	out := make([]types.Txs, n)
 
 	for i, txs := range outTxNodeSets {
-		tmp := make([]types.Tx, len(txs))
+		tmp := make(types.Txs, len(txs))
 		reap_size_cnt += len(txs)
 		for j, txNode := range txs {
 			tx := txNode.(*mempoolTx)
@@ -89,7 +94,8 @@ func (mem *CListMempool) FillWorkspace() {
 }
 
 func (mem *CListMempool) moveTxsFromBufferToWorkspace() {
-	// TODO
+	// TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	mem.updateLastTime()
 	mem.txNodeNum = len(mem.workspace)
 }
 

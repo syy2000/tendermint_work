@@ -1,5 +1,9 @@
 package test123
 
-func RWAnalyse(u []byte) (op []string, address []string, err error) {
+import (
+	"github.com/tendermint/tendermint/types"
+)
+
+func RWAnalyse(u types.Tx) (op []string, address []string, err error) {
 	return
 }
