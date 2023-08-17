@@ -2,6 +2,7 @@ package v0
 
 import (
 	"bytes"
+	"container/heap"
 	"errors"
 	"sync"
 	"sync/atomic"
@@ -82,6 +83,10 @@ type CListMempool struct {
 
 	avasize        int
 	partition_lock sync.Mutex
+
+	memTxHeap *MemTxHeap
+	lastTime  int64
+	heapMtx   sync.RWMutex
 }
 
 // modified by syy
@@ -119,7 +124,11 @@ func NewCListMempool(
 		blockStatusMappingTable: *statustable.NewBlockStatusMappingTable(statustable.UseSimpleMap, nil),
 
 		partition_lock: sync.Mutex{},
+
+		memTxHeap: &MemTxHeap{},
 	}
+
+	heap.Init(mp.memTxHeap)
 
 	if cfg.CacheSize > 0 {
 		mp.cache = mempool.NewLRUTxCache(cfg.CacheSize)
@@ -547,7 +556,8 @@ func (mem *CListMempool) resCbFirstTime(
 			memTx.senders.Store(peerID, true)
 			//modified by syy
 			mem.txIdToMempoolTx.Store(memTx.ID(), memTx)
-			mem.addTx(memTx)
+			// mem.addTx(memTx)
+			mem.HandleTxToHeap(memTx)
 			mem.logger.Debug(
 				"added good transaction",
 				"tx", types.Tx(tx.OriginTx).Hash(),
@@ -834,6 +844,86 @@ func (mem *CListMempool) SetTimeStampGen(gen txTimestamp.Generator) {
 
 func (mem *CListMempool) SetTxState(s txTimestamp.TxState) {
 	mem.timeTxState = s
+}
+
+type MemTxHeap []*mempoolTx
+
+func (m MemTxHeap) Len() int {
+	return len(m)
+}
+
+func (m MemTxHeap) Less(i, j int) bool {
+	t1 := m[i].tx.GetTimestamp().GetTimestamp()
+	t2 := m[j].tx.GetTimestamp().GetTimestamp()
+	if t1 != t2 {
+		return t1 < t2
+	}
+	return m[i].tx.OriginTx.String() < m[j].tx.OriginTx.String()
+}
+
+func (m MemTxHeap) Swap(i, j int) {
+	m[i], m[j] = m[j], m[i]
+}
+
+func (m *MemTxHeap) Push(x any) {
+	*m = append(*m, x.(*mempoolTx))
+}
+
+func (m *MemTxHeap) Pop() any {
+	old := *m
+	n := len(old)
+	x := old[n-1]
+	*m = old[0 : n-1]
+	return x
+}
+
+func (mem *CListMempool) HandleTxToHeap(tx *mempoolTx) {
+	mem.heapMtx.Lock()
+	defer mem.heapMtx.Unlock()
+	h := mem.memTxHeap
+	now := mem.lastTime
+	txTime := tx.tx.GetTimestamp().GetTimestamp()
+	if txTime < now {
+		mem.addTx(tx)
+	} else {
+		heap.Push(h, tx)
+	}
+	tx.tx.Done()
+}
+
+func (mem *CListMempool) updateLastTime() {
+	mem.heapMtx.Lock()
+	defer mem.heapMtx.Unlock()
+	mem.lastTime = mem.timeTxState.GetNowTimestamp()
+	h := mem.memTxHeap
+	now := mem.lastTime
+	for h.Len() != 0 {
+		top := heap.Pop(h).(*mempoolTx)
+		if top.tx.GetTimestamp().GetTimestamp() < now {
+			mem.addTx(top)
+		} else {
+			heap.Push(h, top)
+			return
+		}
+	}
+}
+
+func (mem *CListMempool) updateTime(t int64) bool {
+	mem.heapMtx.Lock()
+	defer mem.heapMtx.Unlock()
+	mem.lastTime = mem.timeTxState.GetNowTimestamp()
+	h := mem.memTxHeap
+	now := mem.lastTime
+	for h.Len() != 0 {
+		top := heap.Pop(h).(*mempoolTx)
+		if top.tx.GetTimestamp().GetTimestamp() < now {
+			mem.addTx(top)
+		} else {
+			heap.Push(h, top)
+			break
+		}
+	}
+	return mem.lastTime > t
 }
 
 //--------------------------------------------------------------------------------

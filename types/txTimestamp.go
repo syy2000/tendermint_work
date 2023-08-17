@@ -67,6 +67,8 @@ type TxWithTimestamp interface {
 	SetTimestamp(t TxTimestamp)
 	GetTimestamp() TxTimestamp
 	GetId() int64
+	SetCallBack(cb func())
+	Done()
 }
 
 type TimestampNormalError struct {

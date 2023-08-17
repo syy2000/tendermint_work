@@ -38,6 +38,8 @@ type (
 		TxValue     []Value
 		TxTimehash  *PoHTimestamp
 		OriginTx    Tx
+
+		cb func()
 	}
 
 	// TxKey is the fixed length array key used as an index.
@@ -162,6 +164,14 @@ func (tx *MemTx) GetTimestamp() TxTimestamp {
 
 func (tx *MemTx) GetId() int64 {
 	return tx.TxId
+}
+
+func (tx *MemTx) SetCallBack(cb func()) {
+	tx.cb = cb
+}
+
+func (tx *MemTx) Done() {
+	tx.cb()
 }
 
 // modified by syy

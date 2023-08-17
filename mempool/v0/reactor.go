@@ -369,7 +369,7 @@ func (memR *Reactor) handlePeerTx() {
 		select {
 		case tx := <-txChan:
 			memTx := tx.(*types.MemTx)
-			memR.mempool.CheckTxReactor(memTx, nil, mempool.TxInfo{})
+			go memR.mempool.CheckTxReactor(memTx, nil, mempool.TxInfo{})
 		}
 	}
 }

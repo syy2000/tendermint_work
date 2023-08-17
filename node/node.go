@@ -906,14 +906,22 @@ func NewNode(config *cfg.Config,
 		}()
 	}
 
-	poHMempool := poH.NewPoHMempool(logger)
-	poHGen := poH.NewPoHGenerator(10000, logger, poHMempool)
+	txTimeStamepLogger := logger.With("module", "txTimeStamep")
+	poHMempool := poH.NewPoHMempool(txTimeStamepLogger)
+	poHGen := poH.NewPoHGenerator(10000, txTimeStamepLogger, poHMempool)
 	txState := poH.NewPoHTxState(poHMempool, poHGen, nodeKey.PrivKey, nodeKey.PrivKey.PubKey(), crypto.Address(nodeKey.ID()))
 	switch config.Mempool.Version {
 	case cfg.MempoolV0:
 		mempoolReactor.(*mempoolv0.Reactor).SetTxState(txState)
 		mempool.(*mempoolv0.CListMempool).SetTimeStampGen(poHGen)
 		mempool.(*mempoolv0.CListMempool).SetTxState(txState)
+	}
+	address := nodeKey.PrivKey.PubKey().Address()
+	_, validators := consensusState.GetValidators()
+	for _, v := range validators {
+		if bytes.Compare(address, v.Address) != 0 {
+			txState.AddValidator(v)
+		}
 	}
 
 	node := &Node{
@@ -1019,6 +1027,19 @@ func (n *Node) OnStart() error {
 			return fmt.Errorf("failed to start state sync: %w", err)
 		}
 	}
+	// TODO
+
+	n.txState.SetSeed(&types.Seed{
+		Seed:   []byte("hello world"),
+		Height: 1,
+		Round:  1,
+	})
+	n.txState.Start()
+
+	go func(){
+		// 在相同时间开始
+		n.timestampGen.GenStart()
+	}()
 
 	return nil
 }
