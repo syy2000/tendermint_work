@@ -23,6 +23,8 @@ import (
 	"github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/abci/version"
 	"github.com/tendermint/tendermint/proto/tendermint/crypto"
+
+	prototypes "github.com/tendermint/tendermint/proto/tendermint/types"
 )
 
 // client is a global variable so it can be reused by the console
@@ -536,7 +538,7 @@ func cmdDeliverTx(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	res, err := client.DeliverTxSync(types.RequestDeliverTx{Tx: txBytes})
+	res, err := client.DeliverTxSync(types.RequestDeliverTx{Tx: &prototypes.Tx{OriginTx: txBytes}})
 	if err != nil {
 		return err
 	}
@@ -562,7 +564,7 @@ func cmdCheckTx(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	res, err := client.CheckTxSync(types.RequestCheckTx{Tx: txBytes})
+	res, err := client.CheckTxSync(types.RequestCheckTx{Tx: &prototypes.Tx{OriginTx: txBytes}})
 	if err != nil {
 		return err
 	}

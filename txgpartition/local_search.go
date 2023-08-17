@@ -298,7 +298,7 @@ func AdvancedMove(g TxGraph, K int, alpha float64, partitioning *Partitioning, c
 			i++
 		}
 		i = 0
-		for _, child := range g.QueryNodeChild(n) {
+		for _, child := range childs {
 			childcolor := partitioning.Get(child)
 			if childcolor < B {
 				B = childcolor

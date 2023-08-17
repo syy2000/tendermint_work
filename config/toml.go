@@ -393,6 +393,7 @@ ttl-duration = "{{ .Mempool.TTLDuration }}"
 ttl-num-blocks = {{ .Mempool.TTLNumBlocks }}
 
 avarage_block_size = {{.Mempool.AvarageBlockSize}}
+partition_delta = {{.Mempool.PartitionDelta}}
 
 #######################################################
 ###         State Sync Configuration Options        ###

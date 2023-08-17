@@ -1,5 +1,6 @@
 package v1
 
+/*
 import (
 	"errors"
 	"fmt"
@@ -298,3 +299,4 @@ type TxsMessage struct {
 func (m *TxsMessage) String() string {
 	return fmt.Sprintf("[TxsMessage %v]", m.Txs)
 }
+*/

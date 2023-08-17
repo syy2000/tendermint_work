@@ -412,6 +412,7 @@ func createMempoolAndMempoolReactor(
 
 		mp.SetLogger(logger)
 		mp.SetBlockSize(config.Mempool.AvarageBlockSize)
+		mp.SetAlpha(config.Mempool.PartitionDelta)
 
 		reactor := mempoolv0.NewReactor(
 			config.Mempool,

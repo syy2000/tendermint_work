@@ -1,5 +1,6 @@
 package v1
 
+/*
 import (
 	"fmt"
 	"runtime"
@@ -767,3 +768,4 @@ func (txmp *TxMempool) notifyTxsAvailable() {
 		}
 	}
 }
+*/

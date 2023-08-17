@@ -1,5 +1,6 @@
 package v1
 
+/*
 import (
 	"sync"
 	"time"
@@ -85,3 +86,4 @@ func (w *WrappedTx) Priority() int64 {
 	defer w.mtx.Unlock()
 	return w.priority
 }
+*/
