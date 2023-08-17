@@ -982,6 +982,24 @@ func (mem *CListMempool) updateLastTime() {
 	}
 }
 
+func (mem *CListMempool) updateTime(t int64) bool {
+	mem.heapMtx.Lock()
+	defer mem.heapMtx.Unlock()
+	mem.lastTime = mem.timeTxState.GetNowTimestamp()
+	h := mem.memTxHeap
+	now := mem.lastTime
+	for h.Len() != 0 {
+		top := heap.Pop(h).(*mempoolTx)
+		if top.tx.GetTimestamp().GetTimestamp() < now {
+			mem.addTx(top)
+		} else {
+			heap.Push(h, top)
+			break
+		}
+	}
+	return mem.lastTime > t
+}
+
 //--------------------------------------------------------------------------------
 
 // mempoolTx is a transaction that successfully ran

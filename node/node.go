@@ -1026,6 +1026,19 @@ func (n *Node) OnStart() error {
 			return fmt.Errorf("failed to start state sync: %w", err)
 		}
 	}
+	// TODO
+
+	n.txState.SetSeed(&types.Seed{
+		Seed:   []byte("hello world"),
+		Height: 1,
+		Round:  1,
+	})
+	n.txState.Start()
+
+	go func(){
+		// 在相同时间开始
+		n.timestampGen.GenStart()
+	}()
 
 	return nil
 }
