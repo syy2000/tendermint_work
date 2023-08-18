@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	MessageChanMaxNum = 10000
+	MessageChanMaxNum = 1000000
 	roundMax          = 100000000000000000
 	roundMin          = 0
 	roundInterval     = 1000000

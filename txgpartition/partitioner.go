@@ -1,5 +1,7 @@
 package txgpartition
 
+import "fmt"
+
 const (
 	NORMAL_SM_MODE = "normal&sm"
 	NORMAL_AM_MODE = "normal&am"
@@ -60,7 +62,7 @@ func (p *TransactionGraphPartitioner) Partition(K int, alpha float64) *Transacti
 		partitioning: partitioning,
 		colorMap:     cm,
 		txMap:        tm,
-		size:         cm.size,
+		size:         cm.numTxBlocks,
 	}
 }
 
@@ -80,4 +82,14 @@ func (p *TransactionGraphPartitionResult) Empty() bool {
 func (p *TransactionGraphPartitionResult) TxNodeColor(id int64) (int, bool) {
 	out, ok := p.partitioning.txColor[id]
 	return out, ok
+}
+func (p *TransactionGraphPartitionResult) PrintBasic() {
+	fmt.Println("partition result size : ", p.size, p.txMap.blockNum, p.txMap.partitionNum)
+	for _, n := range p.colorMap.adjMatrix {
+		fmt.Println(n)
+	}
+	fmt.Println("color size : ")
+	for _, n := range p.txMap.nodeMap {
+		fmt.Println(n)
+	}
 }

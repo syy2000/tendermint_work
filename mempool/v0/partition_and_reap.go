@@ -57,6 +57,9 @@ func (mem *CListMempool) ReapBlocks(n int) (int, []types.Txs) {
 	start := time.Now()
 	reap_size_cnt := 0
 	n, outTxNodeSets, colors := mem.partitionResult.ReapBlocks(n)
+	if n == 0 {
+		fmt.Println("============================== ", mem.partitionResult.Empty(), "===============================")
+	}
 	out := make([]types.Txs, n)
 
 	for i, txs := range outTxNodeSets {
@@ -97,12 +100,13 @@ func (mem *CListMempool) FillWorkspace() {
 
 	// 事务图生成
 	mem.ProcWorkspaceDependency()
-	fmt.Println("========== Generate Time : ", time.Since(start))
+	fmt.Println("========== Generate Time : ", time.Since(start), len(mem.workspace))
 	start = time.Now()
 
 	// 事务图划分
 	mem.SplitWorkspace()
-	fmt.Println("========== Partition Time : ", time.Since(start))
+	fmt.Println("========== Partition Time : ", time.Since(start), len(mem.workspace))
+	//mem.partitionResult.PrintBasic()
 
 	mem.notifiedTxsAvailable = false
 	mem.notifyTxsAvailable()

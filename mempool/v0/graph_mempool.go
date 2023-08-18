@@ -24,14 +24,17 @@ func MustMempoolTx(n txp.TxNode) *mempoolTx {
 }
 
 func (mmp *CListMempool) IsBlockNode(n txp.TxNode) bool {
-	return MustMempoolTx(n).isBlock
+	u := MustMempoolTx(n)
+	return u.isBlock
 }
 
 func (mmp *CListMempool) InDegree(n txp.TxNode) int {
-	return MustMempoolTx(n).inDegree
+	u := MustMempoolTx(n)
+	return u.inDegree
 }
 func (mmp *CListMempool) OutDegree(n txp.TxNode) int {
-	return MustMempoolTx(n).outDegree
+	u := MustMempoolTx(n)
+	return u.outDegree
 }
 func (mmp *CListMempool) DecOutDegree(n txp.TxNode) {
 	u := MustMempoolTx(n)
@@ -44,7 +47,8 @@ func (mmp *CListMempool) Visited(n txp.TxNode) bool {
 	return false
 }
 func (mmp *CListMempool) NodeIndex(n txp.TxNode) int64 {
-	return MustMempoolTx(n).tx.TxId
+	u := MustMempoolTx(n)
+	return u.tx.TxId
 }
 func (mmp *CListMempool) TxNodeNum() int {
 	return mmp.txNodeNum
@@ -69,6 +73,9 @@ func (mmp *CListMempool) FindZeroOutdegree() []txp.TxNode {
 		if n.outDegree == 0 {
 			out = append(out, n)
 		}
+	}
+	for _, n := range mmp.blockNodes {
+		out = append(out, n)
 	}
 	return out
 }
