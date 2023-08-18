@@ -106,7 +106,7 @@ func (mem *CListMempool) FillWorkspace() {
 	// 事务图划分
 	mem.SplitWorkspace()
 	fmt.Println("========== Partition Time : ", time.Since(start), len(mem.workspace))
-	//mem.partitionResult.PrintBasic()
+	mem.partitionResult.PrintBasic()
 
 	mem.notifiedTxsAvailable = false
 	mem.notifyTxsAvailable()

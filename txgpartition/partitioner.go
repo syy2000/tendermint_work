@@ -85,11 +85,5 @@ func (p *TransactionGraphPartitionResult) TxNodeColor(id int64) (int, bool) {
 }
 func (p *TransactionGraphPartitionResult) PrintBasic() {
 	fmt.Println("partition result size : ", p.size, p.txMap.blockNum, p.txMap.partitionNum)
-	for _, n := range p.colorMap.adjMatrix {
-		fmt.Println(n)
-	}
-	fmt.Println("color size : ")
-	for _, n := range p.txMap.nodeMap {
-		fmt.Println(n)
-	}
+	fmt.Println("partition sets : ", p.colorMap.numTxBlocks)
 }
