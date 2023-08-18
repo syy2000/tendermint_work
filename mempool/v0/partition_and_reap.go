@@ -8,6 +8,7 @@ statement：
 import (
 	"fmt"
 	"math"
+	"math/rand"
 	"time"
 
 	"github.com/tendermint/tendermint/txgpartition"
@@ -50,13 +51,12 @@ func (mem *CListMempool) ReapBlocks(n int) (int, []types.Txs) {
 		}
 	}()
 
-	// TODO
-	// Choose exactly 1 block, instead of all blocks
-	// This will change inputs and outputs
-
 	start := time.Now()
 	reap_size_cnt := 0
-	n, outTxNodeSets, colors := mem.partitionResult.ReapBlocks(n)
+	// TODO Choose exactly 1 block
+	n, outTxNodeSets, colors := mem.partitionResult.ReapBlocks(4)
+	chosen := rand.Intn(n)
+
 	if n == 0 {
 		fmt.Println("============================== ", mem.partitionResult.Empty(), "===============================")
 	}
@@ -76,7 +76,8 @@ func (mem *CListMempool) ReapBlocks(n int) (int, []types.Txs) {
 	mem.mapColorToBlockID(colors)
 	mem.logger.Info(fmt.Sprintf("reap %d blocks with avarage block size %d : %s", n, reap_size_cnt/n, time.Since(start)))
 
-	return n, out
+	// TODO : Problem
+	return n, []types.Txs{out[chosen]}
 }
 
 func (mem *CListMempool) FillWorkspace() {
