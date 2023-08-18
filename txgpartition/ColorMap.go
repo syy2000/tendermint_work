@@ -10,7 +10,8 @@ type ColorMap struct {
 	numTxBlocks   int
 }
 
-func CreateColorMap(n int, b int) *ColorMap {
+func CreateColorMap(k int, b int) *ColorMap {
+	n := k + b
 	c := make([][]int, n)
 	for i := 0; i < n; i++ {
 		c[i] = make([]int, n)
@@ -19,6 +20,7 @@ func CreateColorMap(n int, b int) *ColorMap {
 		adjMatrix:     c,
 		size:          n,
 		numBlockColor: b,
+		numTxBlocks:   k,
 	}
 }
 
@@ -34,10 +36,11 @@ func (c *ColorMap) WillResultInEdgeDec(i, j, amount int) bool {
 	return c.adjMatrix[i][j] == amount && i != j
 }
 
-// should only be called onece, when not all blocks have at least 1 txs, to delete some block parts
+/*
 func (c *ColorMap) SetTxBlockNum(n int) {
 	c.numTxBlocks, c.size = n, n+c.numBlockColor
 }
+*/
 
 func (c *ColorMap) Score(i, j int, inEdges, outEdges []int) int {
 	var ScoreDec, ScoreAdd int

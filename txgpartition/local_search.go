@@ -15,7 +15,7 @@ func Init_Partitioning(g TxGraph, K int, _ float64) (*Partitioning, *ColorMap, *
 		partitioning    = NewPartitioning(g)
 		B               = g.BlockNodeNum()
 		T               = g.TxNodeNum()
-		colorMap        = CreateColorMap(B+K, B)
+		colorMap        = CreateColorMap(K, B)
 		BlockNodeQueue  = NewTxDequeue()
 		TxNodeQueue     = NewTxDequeue()
 		startColor      = B
