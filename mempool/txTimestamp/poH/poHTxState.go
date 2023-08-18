@@ -2,15 +2,17 @@ package poH
 
 import (
 	"bytes"
+	"io"
+	"sort"
+
 	"github.com/gogo/protobuf/proto"
 	"github.com/tendermint/tendermint/crypto"
+	"github.com/tendermint/tendermint/libs/log"
 	"github.com/tendermint/tendermint/libs/service"
 	"github.com/tendermint/tendermint/libs/sync"
 	"github.com/tendermint/tendermint/p2p"
 	tmproto "github.com/tendermint/tendermint/proto/tendermint/types"
 	"github.com/tendermint/tendermint/types"
-	"io"
-	"sort"
 )
 
 const (
@@ -59,6 +61,8 @@ type PoHTxState struct {
 	service.BaseService
 
 	txDone *TxDone
+
+	Logger log.Logger
 }
 
 func NewPoHTxState(
@@ -67,6 +71,7 @@ func NewPoHTxState(
 	privKey crypto.PrivKey,
 	pubKey crypto.PubKey,
 	address crypto.Address,
+	logger log.Logger,
 ) *PoHTxState {
 	s := new(PoHTxState)
 	s.mempool = m
@@ -86,6 +91,8 @@ func NewPoHTxState(
 	s.OutPoHBlockPartSetChan = make(chan *types.PoHBlockPartSet, MessageChanMax)
 
 	s.txDone = gen.txDone
+
+	s.Logger = logger
 	return s
 }
 
@@ -101,7 +108,7 @@ func (s *PoHTxState) AddValidator(validator *types.Validator) bool {
 	s.PoHValidatorMap[peerID] = v
 	s.ValidatorMap[peerID] = validator
 	s.cache[peerID] = NewMessageCache()
-	s.PoHValidatorTimeMap[peerID] = v.GetNowTimestamp().GetTimestamp()
+	// s.PoHValidatorTimeMap[peerID] = v.GetNowTimestamp().GetTimestamp()
 	return true
 }
 
@@ -141,6 +148,7 @@ func (s *PoHTxState) SetSeed(seed *types.Seed) bool {
 
 // TODO 错误处理
 func (s *PoHTxState) OnStart() error {
+	s.Logger.Info("txState 正在执行")
 	go func() error {
 		for {
 			select {
@@ -283,6 +291,7 @@ func (s *PoHTxState) handleBlock(src p2p.ID, b *types.PoHBlock) (bool, error) {
 		memTx.SetCallBack(func() {
 			s.txDone.Done(memTx)
 		})
+		s.txDone.AddTxToTxDone(memTx)
 		s.TxWithTimestampChan <- memTx
 	}
 	s.mtx.Lock()
@@ -291,21 +300,26 @@ func (s *PoHTxState) handleBlock(src p2p.ID, b *types.PoHBlock) (bool, error) {
 	return true, nil
 }
 
-func (s *PoHTxState) GetNowTimestamp() int64 {
+func (s *PoHTxState) GetNowTimestamp2() int64 {
+	// s.Logger.Info("正在取出时间 state")
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 	now := s.mempool.GetNowTimestamp()
+	// s.Logger.Info("正在取出时间 gen", "t", now)
 	for _, v := range s.PoHValidatorTimeMap {
 		t := v
 		if now > t {
 			now = t
 		}
+		// s.Logger.Info("正在取出时间 v", "t", now)
 	}
+	// s.Logger.Info("正在取出时间 after v", "t", now)
 	t, ok := s.txDone.GetNowMin()
 	if ok {
 		if now > t {
 			now = t
 		}
+		// s.Logger.Info("正在取出时间 txDone", "t", now)
 	}
 	return now
 }

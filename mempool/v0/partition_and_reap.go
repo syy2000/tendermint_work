@@ -34,6 +34,9 @@ func (mem *CListMempool) ReapBlocks(n int) (int, []types.Txs) {
 	if mem.partitionResult == nil || mem.partitionResult.Empty() {
 		mem.partition_lock.Lock()
 		mem.FillWorkspace()
+		if mem.txNodeNum == 0 {
+			return 1, []types.Txs{nil}
+		}
 	}
 
 	// partition_lock ： 保证取区块与划分新图是串行的
@@ -85,18 +88,31 @@ func (mem *CListMempool) FillWorkspace() {
 	mem.txsConflictMap = make(map[string]*txsConflictMapValue)
 
 	mem.moveTxsFromBufferToWorkspace()
+	if mem.txNodeNum == 0 {
+		return
+	}
+
+	start := time.Now()
+	fmt.Printf("=============== Partition Size : %d\n", mem.txNodeNum)
 
 	// 事务图生成
 	mem.ProcWorkspaceDependency()
+	fmt.Println("========== Generate Time : ", time.Since(start))
+	start = time.Now()
 
 	// 事务图划分
 	mem.SplitWorkspace()
+	fmt.Println("========== Partition Time : ", time.Since(start))
+
+	mem.notifiedTxsAvailable = false
+	mem.notifyTxsAvailable()
 }
 
 func (mem *CListMempool) moveTxsFromBufferToWorkspace() {
 	// TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 	mem.updateLastTime()
 	mem.txNodeNum = len(mem.workspace)
+	mem.undo_txs -= mem.txNodeNum
 }
 
 func (mem *CListMempool) UpdateBlockStatusMappingTable() {

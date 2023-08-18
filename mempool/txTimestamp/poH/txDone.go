@@ -2,6 +2,7 @@ package poH
 
 import (
 	"bytes"
+	// "fmt"
 
 	"github.com/emirpasic/gods/maps/treemap"
 	"github.com/tendermint/tendermint/libs/sync"
@@ -39,17 +40,24 @@ func NewTxDone() *TxDone {
 func (t *TxDone) AddTxToTxDone(tx types.TxWithTimestamp) {
 	t.mtx.Lock()
 	defer t.mtx.Unlock()
+	// fmt.Println("-------------------------------   add %v   --------------------------------", tx.GetTimestamp().GetTimestamp())
 	t.txMap.Put(tx, 1)
 }
 
 func (t *TxDone) Done(tx types.TxWithTimestamp) {
 	t.mtx.Lock()
 	defer t.mtx.Unlock()
+	// fmt.Println("-------------------------------   done %v  --------------------------------", tx.GetTimestamp().GetTimestamp())
 	t.txMap.Remove(tx)
 }
 
 func (t *TxDone) GetNowMin() (int64, bool) {
 	t.mtx.RLock()
 	defer t.mtx.RUnlock()
-	return 0, true
+	txkey, _ := t.txMap.Min()
+	if txkey == nil {
+		return 0, false
+	}
+	tx := txkey.(types.TxWithTimestamp)
+	return tx.GetTimestamp().GetTimestamp(), true
 }

@@ -109,9 +109,8 @@ func (gen *PoHGenerator) GenerateTimestamp(tx *types.Tx) types.TxTimestamp {
 
 // 这里目前是使用异步减少阻塞
 func (gen *PoHGenerator) AddTx(tx types.TxWithTimestamp) {
-	go func() {
-		gen.MessageChan <- tx
-	}()
+	//gen.Logger.Info("执行addtx", "tx", tx)
+	gen.MessageChan <- tx
 }
 
 func (gen *PoHGenerator) generateNextRoundAndOutput() {
@@ -122,6 +121,7 @@ func (gen *PoHGenerator) generateNextRoundAndOutput() {
 	txOutFlag := false
 	select {
 	case tx = <-gen.MessageChan:
+		//gen.Logger.Info("gen获取消息", "tx", tx)
 		mes = tx.GetTx()
 		txOutFlag = true
 	default:
@@ -140,6 +140,8 @@ func (gen *PoHGenerator) generateNextRoundAndOutput() {
 			tx.SetCallBack(func() {
 				gen.txDone.Done(tx)
 			})
+			gen.txDone.AddTxToTxDone(tx)
+			//gen.Logger.Info("时间辍生成", "res", res, "tx", tx)
 			gen.TxOutChan <- tx
 			// gen.txWithTimestampMap[tx.GetId()] = tx
 		}
@@ -148,7 +150,7 @@ func (gen *PoHGenerator) generateNextRoundAndOutput() {
 }
 
 func (gen *PoHGenerator) generate() {
-	gen.Logger.Debug("生成启动")
+	gen.Logger.Info("生成启动")
 	for {
 		select {
 		case <-gen.quit:
@@ -203,6 +205,7 @@ func (gen *PoHGenerator) GetTx(id int64) types.TxWithTimestamp {
 		}
 	}
 	gen.txWithTimestampMap.Delete(id)
+	//gen.Logger.Info("时间辍获取", "id", id, "tx", tx)
 	return tx.(types.TxWithTimestamp)
 }
 

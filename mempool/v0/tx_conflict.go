@@ -7,7 +7,8 @@ type txsConflictMapValue struct {
 }
 
 func (mem *CListMempool) ProcWorkspaceDependency() {
-	for _, tx := range mem.workspace {
+	for i, tx := range mem.workspace {
+		tx.tx.TxId = int64(i)
 		mem.procTxDependency(tx)
 	}
 }

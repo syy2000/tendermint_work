@@ -16,5 +16,5 @@ type TxState interface {
 
 	Start() error
 
-	GetNowTimestamp() int64
+	GetNowTimestamp2() int64
 }

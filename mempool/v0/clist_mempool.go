@@ -15,9 +15,9 @@ import (
 	tmsync "github.com/tendermint/tendermint/libs/sync"
 	"github.com/tendermint/tendermint/mempool"
 	"github.com/tendermint/tendermint/mempool/txTimestamp"
+	"github.com/tendermint/tendermint/mempool/txTimestamp/poH"
 	"github.com/tendermint/tendermint/p2p"
 	"github.com/tendermint/tendermint/proxy"
-	txp "github.com/tendermint/tendermint/txgpartition"
 	"github.com/tendermint/tendermint/types"
 
 	"github.com/tendermint/tendermint/txgpartition"
@@ -101,6 +101,9 @@ type CListMempool struct {
 
 	// txRw
 	rwAnalyse func(types.Tx) ([]string, []string, error)
+
+	// size
+	undo_txs int
 }
 
 var _ mempool.Mempool = &CListMempool{}
@@ -201,7 +204,7 @@ func (mem *CListMempool) Unlock() {
 
 // Safe for concurrent use by multiple goroutines.
 func (mem *CListMempool) Size() int {
-	return mem.txs.Len()
+	return mem.undo_txs + mem.txNodeNum
 }
 
 // Safe for concurrent use by multiple goroutines.
@@ -513,19 +516,21 @@ func (mem *CListMempool) RemoveTxByKey(txKey types.TxKey) error {
 }
 
 func (mem *CListMempool) isFull(txSize int) error {
-	var (
-		memSize  = mem.Size()
-		txsBytes = mem.SizeBytes()
-	)
+	/*
+		var (
+			memSize  = mem.Size()
+			txsBytes = mem.SizeBytes()
+		)
 
-	if memSize >= mem.config.Size || int64(txSize)+txsBytes > mem.config.MaxTxsBytes {
-		return mempool.ErrMempoolIsFull{
-			NumTxs:      memSize,
-			MaxTxs:      mem.config.Size,
-			TxsBytes:    txsBytes,
-			MaxTxsBytes: mem.config.MaxTxsBytes,
+		if memSize >= mem.config.Size || int64(txSize)+txsBytes > mem.config.MaxTxsBytes {
+			return mempool.ErrMempoolIsFull{
+				NumTxs:      memSize,
+				MaxTxs:      mem.config.Size,
+				TxsBytes:    txsBytes,
+				MaxTxsBytes: mem.config.MaxTxsBytes,
+			}
 		}
-	}
+		donghao */
 
 	return nil
 }
@@ -562,6 +567,7 @@ func (mem *CListMempool) resCbFirstTime(
 			// timestamp
 			tempTx := &tx
 			if tx.GetTimestamp() == nil {
+				//mem.logger.Info("不等于nil")
 				mem.timeStampGen.AddTx(&tx)
 				txWithTimestamp := mem.timeStampGen.GetTx(tx.GetId())
 				tempTx = txWithTimestamp.(*types.MemTx)
@@ -574,6 +580,7 @@ func (mem *CListMempool) resCbFirstTime(
 			//modified by syy
 			mem.txIdToMempoolTx.Store(memTx.ID(), memTx)
 			// mem.addTx(memTx)
+			//mem.logger.Info("加入heap前", "memTx", memTx, "tempTx", tempTx)
 			mem.HandleTxToHeap(memTx)
 			mem.logger.Debug(
 				"added good transaction",
@@ -893,26 +900,29 @@ func (m *MemTxHeap) Pop() any {
 func (mem *CListMempool) HandleTxToHeap(tx *mempoolTx) {
 	mem.heapMtx.Lock()
 	defer mem.heapMtx.Unlock()
+	mem.undo_txs++
 	h := mem.memTxHeap
-	now := mem.lastTime
-	txTime := tx.tx.GetTimestamp().GetTimestamp()
-	if txTime < now {
-		mem.addTx(tx)
-	} else {
-		heap.Push(h, tx)
-	}
+	heap.Push(h, tx)
 	tx.tx.Done()
 }
 
 func (mem *CListMempool) updateLastTime() {
 	mem.heapMtx.Lock()
 	defer mem.heapMtx.Unlock()
-	mem.lastTime = mem.timeTxState.GetNowTimestamp()
+	// mem.logger.Info("获取时间")
+	txstate := mem.timeTxState.(*poH.PoHTxState)
+	temp := txstate.GetNowTimestamp2()
+	mem.lastTime = temp
+	// mem.logger.Info("获取时间???")
 	h := mem.memTxHeap
 	now := mem.lastTime
 	for h.Len() != 0 {
+		// mem.logger.Info("heap 不为空")
 		top := heap.Pop(h).(*mempoolTx)
-		if top.tx.GetTimestamp().GetTimestamp() < now {
+		topTime := top.tx.GetTimestamp().GetTimestamp()
+		// mem.logger.Info("当前tx", "now", now, "topTime", topTime, "top", top)
+		if topTime < now {
+			// mem.logger.Info("heap addTx")
 			mem.addTx(top)
 		} else {
 			heap.Push(h, top)
@@ -924,7 +934,7 @@ func (mem *CListMempool) updateLastTime() {
 func (mem *CListMempool) updateTime(t int64) bool {
 	mem.heapMtx.Lock()
 	defer mem.heapMtx.Unlock()
-	mem.lastTime = mem.timeTxState.GetNowTimestamp()
+	mem.lastTime = mem.timeTxState.GetNowTimestamp2()
 	h := mem.memTxHeap
 	now := mem.lastTime
 	for h.Len() != 0 {
@@ -954,8 +964,8 @@ type mempoolTx struct {
 	//conflictTxs []string // 记录的是冲突的事务id
 	inDegree  int
 	outDegree int
-	parentTxs []txp.TxNode
-	childTxs  []txp.TxNode
+	parentTxs []txgpartition.TxNode
+	childTxs  []txgpartition.TxNode
 	isBlock   bool
 }
 
@@ -979,16 +989,6 @@ func NewMempoolTx(tx *types.MemTx) *mempoolTx {
 // Height returns the height for this transaction
 func (memTx *mempoolTx) Height() int64 {
 	return atomic.LoadInt64(&memTx.height)
-}
-
-// modified by syy
-func containsTx(arrTx []*mempoolTx, targetTx *mempoolTx) bool {
-	for _, item := range arrTx {
-		if item == targetTx {
-			return true
-		}
-	}
-	return false
 }
 
 // modified by donghao

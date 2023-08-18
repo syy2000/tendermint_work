@@ -159,7 +159,11 @@ func (tx *MemTx) SetTimestamp(t TxTimestamp) {
 }
 
 func (tx *MemTx) GetTimestamp() TxTimestamp {
-	return tx.TxTimehash
+	if tx.TxTimehash == nil {
+		return nil
+	} else {
+		return tx.TxTimehash
+	}
 }
 
 func (tx *MemTx) GetId() int64 {

@@ -917,18 +917,22 @@ func NewNode(config *cfg.Config,
 
 	txTimeStamepLogger := logger.With("module", "txTimeStamep")
 	poHMempool := poH.NewPoHMempool(txTimeStamepLogger)
-	poHGen := poH.NewPoHGenerator(10000, txTimeStamepLogger, poHMempool)
-	txState := poH.NewPoHTxState(poHMempool, poHGen, nodeKey.PrivKey, nodeKey.PrivKey.PubKey(), crypto.Address(nodeKey.ID()))
+	poHGen := poH.NewPoHGenerator(100000, txTimeStamepLogger, poHMempool)
+	txState := poH.NewPoHTxState(poHMempool, poHGen, nodeKey.PrivKey, nodeKey.PrivKey.PubKey(), crypto.Address(nodeKey.ID()), txTimeStamepLogger)
 	switch config.Mempool.Version {
 	case cfg.MempoolV0:
+		logger.Info("设置mempool")
 		mempoolReactor.(*mempoolv0.Reactor).SetTxState(txState)
 		mempool.(*mempoolv0.CListMempool).SetTimeStampGen(poHGen)
 		mempool.(*mempoolv0.CListMempool).SetTxState(txState)
 	}
-	address := nodeKey.PrivKey.PubKey().Address()
+	address := pubKey.Address()
 	_, validators := consensusState.GetValidators()
 	for _, v := range validators {
-		if bytes.Compare(address, v.Address) != 0 {
+		logger.Info("增加validator", "v.address", v.Address, "address", address)
+		// if bytes.Compare(address, v.Address) != 0 {
+		if string(address) != string(v.Address) {
+			logger.Info("成功增加validator", v)
 			txState.AddValidator(v)
 		}
 	}
@@ -1045,10 +1049,7 @@ func (n *Node) OnStart() error {
 	})
 	n.txState.Start()
 
-	go func() {
-		// 在相同时间开始
-		n.timestampGen.GenStart()
-	}()
+	n.timestampGen.GenStart()
 
 	return nil
 }
