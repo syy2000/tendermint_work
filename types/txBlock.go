@@ -100,6 +100,8 @@ type PoHBlockPart struct {
 	Index  uint32           `json:"index"`
 	Bytes  tmbytes.HexBytes `json:"bytes"`
 	Proof  merkle.Proof     `json:"proof"`
+
+	Address crypto.Address `json:"address"`
 }
 
 func (part *PoHBlockPart) ToProto() *tmproto.PoHBlockPart {
@@ -114,6 +116,8 @@ func (part *PoHBlockPart) ToProto() *tmproto.PoHBlockPart {
 
 	proof := part.Proof.ToProto()
 	pp.Proof = proof
+
+	pp.Address = part.Address
 	return pp
 }
 
@@ -132,6 +136,7 @@ func NewPoHBlockPartFromProto(pb *tmproto.PoHBlockPart) *PoHBlockPart {
 	part.Proof = *proof
 	part.Height = pb.Height
 	part.Total = pb.Total
+	part.Address = pb.Address
 
 	return part
 }
@@ -150,7 +155,7 @@ type PoHBlockPartSet struct {
 	height   int64
 }
 
-func NewPoHBlockPartSetFromData(data []byte, partSize uint32, height int64) *PoHBlockPartSet {
+func NewPoHBlockPartSetFromData(data []byte, partSize uint32, height int64, address crypto.Address) *PoHBlockPartSet {
 	// divide data into 4kb parts.
 	total := (uint32(len(data)) + partSize - 1) / partSize
 	parts := make([]*PoHBlockPart, total)
@@ -162,6 +167,8 @@ func NewPoHBlockPartSetFromData(data []byte, partSize uint32, height int64) *PoH
 			Total:  total,
 			Index:  i,
 			Bytes:  data[i*partSize : tmmath.MinInt(len(data), int((i+1)*partSize))],
+
+			Address: address,
 		}
 		parts[i] = part
 		partsBytes[i] = part.Bytes

@@ -63,6 +63,7 @@ func (m *PoHMempool) AddTimestamp(t types.TxTimestamp) {
 	m.Round = t.GetTimestamp()
 	if num%TxNumOneBlock == 0 {
 		// 正好到整倍数
+		// m.Logger.Info("poh 产生了新的区块")
 		m.CreateBlockChan <- struct{}{}
 	}
 }

@@ -579,7 +579,7 @@ func (mem *CListMempool) resCbFirstTime(
 			//modified by syy
 			mem.txIdToMempoolTx.Store(memTx.ID(), memTx)
 			// mem.addTx(memTx)
-			//mem.logger.Info("加入heap前", "memTx", memTx, "tempTx", tempTx)
+			// mem.logger.Info("加入heap前", "memTx", memTx, "tempTx", tempTx)
 			mem.HandleTxToHeap(memTx)
 			mem.logger.Debug(
 				"added good transaction",
@@ -897,18 +897,20 @@ func (m *MemTxHeap) Pop() any {
 }
 
 func (mem *CListMempool) HandleTxToHeap(tx *mempoolTx) {
+	mem.logger.Info("Heap添加")
 	mem.heapMtx.Lock()
 	defer mem.heapMtx.Unlock()
 	mem.undo_txs++
+	mem.notifyTxsAvailable()
 	h := mem.memTxHeap
 	heap.Push(h, tx)
 	tx.tx.Done()
 }
 
 func (mem *CListMempool) updateLastTime() {
+	mem.logger.Info("获取时间")
 	mem.heapMtx.Lock()
 	defer mem.heapMtx.Unlock()
-	// mem.logger.Info("获取时间")
 	txstate := mem.timeTxState.(*poH.PoHTxState)
 	temp := txstate.GetNowTimestamp2()
 	mem.lastTime = temp
