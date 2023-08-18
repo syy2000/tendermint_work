@@ -918,7 +918,8 @@ func NewNode(config *cfg.Config,
 	txTimeStamepLogger := logger.With("module", "txTimeStamep")
 	poHMempool := poH.NewPoHMempool(txTimeStamepLogger)
 	poHGen := poH.NewPoHGenerator(100000, txTimeStamepLogger, poHMempool)
-	txState := poH.NewPoHTxState(poHMempool, poHGen, nodeKey.PrivKey, nodeKey.PrivKey.PubKey(), crypto.Address(nodeKey.ID()), txTimeStamepLogger)
+	privKey := privValidator.(*privval.FilePV)
+	txState := poH.NewPoHTxState(poHMempool, poHGen, privKey.Key.PrivKey, privKey.Key.PubKey, privKey.GetAddress(), txTimeStamepLogger)
 	switch config.Mempool.Version {
 	case cfg.MempoolV0:
 		logger.Info("设置mempool")
@@ -926,10 +927,10 @@ func NewNode(config *cfg.Config,
 		mempool.(*mempoolv0.CListMempool).SetTimeStampGen(poHGen)
 		mempool.(*mempoolv0.CListMempool).SetTxState(txState)
 	}
-	address := pubKey.Address()
+	address := privKey.Key.PubKey.Address()
 	_, validators := consensusState.GetValidators()
 	for _, v := range validators {
-		logger.Info("增加validator", "v.address", v.Address, "address", address)
+		logger.Info("尝试增加validator", "v.address", v.Address, "address", address)
 		// if bytes.Compare(address, v.Address) != 0 {
 		if string(address) != string(v.Address) {
 			logger.Info("成功增加validator", v)
