@@ -16,8 +16,8 @@ import (
 )
 
 const (
-	MessageChanMax         = 1000
-	TxWithTimestampChanMax = 100000
+	MessageChanMax         = 10000
+	TxWithTimestampChanMax = 1000000
 	BlockPartSizeBytes     = 65536
 )
 

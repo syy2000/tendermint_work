@@ -572,7 +572,6 @@ func (mem *CListMempool) resCbFirstTime(
 				txWithTimestamp := mem.timeStampGen.GetTx(tx.GetId())
 				tempTx = txWithTimestamp.(*types.MemTx)
 			}
-
 			memTx := NewMempoolTx(tempTx)
 			memTx.height = mem.height
 			memTx.gasWanted = r.CheckTx.GasWanted

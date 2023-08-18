@@ -1,15 +1,16 @@
 package poH
 
 import (
+	"sync/atomic"
+
 	"github.com/tendermint/tendermint/libs/log"
 	"github.com/tendermint/tendermint/libs/sync"
 	"github.com/tendermint/tendermint/types"
-	"sync/atomic"
 )
 
 const (
 	TxNumOneBlock      = 5000
-	TxTimestampChanMax = 100000
+	TxTimestampChanMax = 1000000
 	CreateBlockChanMax = 100
 )
 
