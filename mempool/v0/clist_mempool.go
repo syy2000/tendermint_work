@@ -395,6 +395,7 @@ func (mem *CListMempool) CheckTxReactor(
 		return err
 	}
 
+	// 需要cache吗？
 	if !mem.cache.Push(tx.OriginTx) { // if the transaction already exists in the cache
 		// Record a new sender for a tx we've already seen.
 		// Note it's possible a tx is still in the cache but no longer in the mempool
@@ -904,11 +905,11 @@ func (mem *CListMempool) HandleTxToHeap(tx *mempoolTx) {
 	// mem.logger.Info("Heap添加")
 	mem.heapMtx.Lock()
 	defer mem.heapMtx.Unlock()
-	mem.undo_txs++
-	mem.notifyTxsAvailable()
 	h := mem.memTxHeap
 	heap.Push(h, tx)
 	tx.tx.Done()
+	mem.undo_txs++
+	mem.notifyTxsAvailable()
 }
 
 func (mem *CListMempool) updateLastTime() {

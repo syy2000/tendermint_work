@@ -28,11 +28,14 @@ func (mem *CListMempool) SetAlpha(alpha float64) {
 // 1. 从工作区中取出至多n个区块（事务集）
 // 2. 如果工作区中所有区块都被清空，则
 func (mem *CListMempool) ReapBlocks(n int) (int, []types.Txs) {
+	mem.logger.Info("========================== 我正在试图取区块 =========================")
+
 	// reap_lock ： 保证取区块是串行的
 	mem.reap_lock.Lock()
 	defer mem.reap_lock.Unlock()
 
 	if mem.partitionResult == nil || mem.partitionResult.Empty() {
+		mem.logger.Info("========================== 工作区为空   初始化划分 =========================")
 		mem.partition_lock.Lock()
 		mem.FillWorkspace()
 		if mem.txNodeNum == 0 {
