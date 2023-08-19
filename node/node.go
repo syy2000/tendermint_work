@@ -917,7 +917,7 @@ func NewNode(config *cfg.Config,
 
 	txTimeStamepLogger := logger.With("module", "txTimeStamep")
 	poHMempool := poH.NewPoHMempool(txTimeStamepLogger)
-	poHGen := poH.NewPoHGenerator(50000, txTimeStamepLogger, poHMempool)
+	poHGen := poH.NewPoHGenerator(1000, txTimeStamepLogger, poHMempool)
 	privKey := privValidator.(*privval.FilePV)
 	txState := poH.NewPoHTxState(poHMempool, poHGen, privKey.Key.PrivKey, privKey.Key.PubKey, privKey.GetAddress(), txTimeStamepLogger)
 	switch config.Mempool.Version {
@@ -1410,6 +1410,7 @@ func makeNodeInfo(
 			mempl.MempoolChannel,
 			evidence.EvidenceChannel,
 			statesync.SnapshotChannel, statesync.ChunkChannel,
+			mempl.TxBlockPartChannel,
 		},
 		Moniker: config.Moniker,
 		Other: p2p.DefaultNodeInfoOther{

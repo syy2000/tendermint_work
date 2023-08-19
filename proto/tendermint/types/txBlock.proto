@@ -19,4 +19,5 @@ message PoHBlockPart {
   uint32 index = 3;
   bytes bytes = 4;
   tendermint.crypto.Proof proof = 5;
+  bytes address = 6;
 }

@@ -2,6 +2,7 @@ package poH
 
 import (
 	"bytes"
+
 	"io"
 	"sort"
 
@@ -16,7 +17,7 @@ import (
 )
 
 const (
-	MessageChanMax         = 10000
+	MessageChanMax         = 1000000
 	TxWithTimestampChanMax = 1000000
 	BlockPartSizeBytes     = 65536
 )
@@ -38,8 +39,11 @@ type PoHTxState struct {
 	ValidatorMap        map[p2p.ID]*types.Validator
 	cache               map[p2p.ID]*MessageCache
 	PoHValidatorTimeMap map[p2p.ID]int64
-	mempool             *PoHMempool
-	gen                 *PoHGenerator
+
+	lockMap map[p2p.ID]*sync.RWMutex
+
+	mempool *PoHMempool
+	gen     *PoHGenerator
 	// 来自其他节点的消息输入
 	MessageChan chan *types.TxMessage
 
@@ -93,6 +97,8 @@ func NewPoHTxState(
 	s.txDone = gen.txDone
 
 	s.Logger = logger
+
+	s.lockMap = make(map[p2p.ID]*sync.RWMutex)
 	return s
 }
 
@@ -100,6 +106,8 @@ func (s *PoHTxState) AddValidator(validator *types.Validator) bool {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 	peerID := p2p.ID(validator.Address)
+	// peerID := p2p.ID(hex.EncodeToString(validator.Address))
+	// s.Logger.Info("peerID", peerID, "Address", validator.Address)
 	_, ok := s.PoHValidatorMap[peerID]
 	if ok {
 		return true
@@ -108,6 +116,7 @@ func (s *PoHTxState) AddValidator(validator *types.Validator) bool {
 	s.PoHValidatorMap[peerID] = v
 	s.ValidatorMap[peerID] = validator
 	s.cache[peerID] = NewMessageCache()
+	s.lockMap[peerID] = &sync.RWMutex{}
 	// s.PoHValidatorTimeMap[peerID] = v.GetNowTimestamp().GetTimestamp()
 	return true
 }
@@ -149,24 +158,32 @@ func (s *PoHTxState) SetSeed(seed *types.Seed) bool {
 // TODO 错误处理
 func (s *PoHTxState) OnStart() error {
 	s.Logger.Info("txState 正在执行")
+	go func() {
+		for {
+			select {
+			case <-s.mempool.CreateBlockChan:
+				s.handleCreateTxBlock()
+			}
+		}
+	}()
+
 	go func() error {
 		for {
 			select {
 			case <-s.Quit():
 				return nil
-			case <-s.mempool.CreateBlockChan:
-				s.handleCreateTxBlock()
 			case mes := <-s.MessageChan:
 				src := mes.Src
 				switch d := mes.Data.(type) {
 				case *types.PoHBlockPart:
-					f, err := s.handleBlockPart(src, d)
-					if err != nil {
-						// TODO 需要细化
-					}
-					if !f {
-						// TODO 需要细化
-					}
+					// f, err := s.handleBlockPart(src, d)
+					go s.getLock(src, d)
+					// if err != nil {
+					// 	// TODO 需要细化
+					// }
+					// if !f {
+					// 	// TODO 需要细化
+					// }
 				default:
 					// TODO 出错
 				}
@@ -177,9 +194,20 @@ func (s *PoHTxState) OnStart() error {
 }
 
 func (s *PoHTxState) handleCreateTxBlock() {
+	s.Logger.Info("尝试发送poh区块", "height", s.Height)
 	txs := s.mempool.GetTimestamps()
+	flag := false
+	for _, tx := range txs {
+		if len(tx.Message) != 0 {
+			flag = true
+		}
+	}
+	if flag {
+		s.Logger.Info("创建的该区块不为空", "height", s.Height, "address", s.address)
+	}
 	b := new(types.PoHBlock)
 	b.Height = s.Height
+	s.Height++
 	b.PoHTimestamps = txs
 	// 签名
 	b.Address = s.address
@@ -195,8 +223,9 @@ func (s *PoHTxState) handleCreateTxBlock() {
 		s.Logger.Error("区块拆分出错")
 		return
 	}
-	ps := types.NewPoHBlockPartSetFromData(bz, BlockPartSizeBytes, pb.Height)
+	ps := types.NewPoHBlockPartSetFromData(bz, BlockPartSizeBytes, pb.Height, b.Address)
 	s.OutPoHBlockPartSetChan <- ps
+	// s.Logger.Info("放入reactor")
 	// ps.Total()
 	// 这里是否需要转换为part输出？
 }
@@ -208,13 +237,17 @@ func (s *PoHTxState) hasValidator(id p2p.ID) bool {
 
 // TODO 定义错误类型
 func (s *PoHTxState) handleBlockPart(src p2p.ID, p *types.PoHBlockPart) (bool, error) {
-	if !s.hasValidator(src) {
+	s.Logger.Info("我成功收到了消息", "address", p.Address, "height", p.Height)
+	src = p2p.ID(p.Address)
+	if !s.hasValidator(p2p.ID(p.Address)) {
 		return false, &types.TimestampNormalError{}
 	}
+	// s.Logger.Info("有该验证者", "address", p.Address, "height", p.Height)
 	height := p.Height
 	if height < s.PoHValidatorMap[src].Height {
 		return false, &types.TimestampNormalError{}
 	}
+	// s.Logger.Info("height正常", "address", p.Address, "height", p.Height)
 	c := s.cache[src]
 	ps, ok := c.PartSets[height]
 	if !ok {
@@ -235,7 +268,7 @@ func (s *PoHTxState) handleBlockPart(src p2p.ID, p *types.PoHBlockPart) (bool, e
 	for i, h := range c.HeightSlice {
 		ps = c.PartSets[h]
 		if ps.IsComplete() {
-			// r.Logger.Info("区块完整了", "height", p.Height, "total", p.Total, "index", p.Index)
+			s.Logger.Info("区块完整了", "height", p.Height, "total", p.Total, "index", p.Index, "address", p.Address)
 			res = append(res, ps)
 			index = i + 1
 			delete(c.PartSets, h)
@@ -280,6 +313,7 @@ func (s *PoHTxState) handleBlock(src p2p.ID, b *types.PoHBlock) (bool, error) {
 	if !flag {
 		return false, &types.TimestampNormalError{}
 	}
+	s.Logger.Info("我收到了区块 ", "address", b.Address, "height", b.Height, "time", v.lastTimestamp.GetTimestamp())
 	// 输出，需要改timestamp到tx，或者把Tx结构定下来也可以
 	for _, tx := range b.PoHTimestamps {
 		memTx := &types.MemTx{
@@ -287,12 +321,16 @@ func (s *PoHTxState) handleBlock(src p2p.ID, b *types.PoHBlock) (bool, error) {
 				OriginTx:   tx.Message,
 				TxTimehash: tx,
 			},
+			TxTimehash: tx,
 		}
 		memTx.SetCallBack(func() {
 			s.txDone.Done(memTx)
 		})
-		s.txDone.AddTxToTxDone(memTx)
-		s.TxWithTimestampChan <- memTx
+		if len(tx.Message) != 0 {
+			// s.Logger.Info("非空", "tx", tx)
+			s.txDone.AddTxToTxDone(memTx)
+			s.TxWithTimestampChan <- memTx
+		}
 	}
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
@@ -301,25 +339,32 @@ func (s *PoHTxState) handleBlock(src p2p.ID, b *types.PoHBlock) (bool, error) {
 }
 
 func (s *PoHTxState) GetNowTimestamp2() int64 {
-	// s.Logger.Info("正在取出时间 state")
+	s.Logger.Info("正在取出时间 state")
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 	now := s.mempool.GetNowTimestamp()
-	// s.Logger.Info("正在取出时间 gen", "t", now)
+	s.Logger.Info("正在取出时间 gen", "t", now)
 	for _, v := range s.PoHValidatorTimeMap {
 		t := v
 		if now > t {
 			now = t
 		}
-		// s.Logger.Info("正在取出时间 v", "t", now)
+		s.Logger.Info("正在取出时间 v", "t", now)
 	}
-	// s.Logger.Info("正在取出时间 after v", "t", now)
+	s.Logger.Info("正在取出时间 after v", "t", now)
 	t, ok := s.txDone.GetNowMin()
 	if ok {
 		if now > t {
 			now = t
 		}
-		// s.Logger.Info("正在取出时间 txDone", "t", now)
+		s.Logger.Info("正在取出时间 txDone", "t", now)
 	}
 	return now
+}
+
+func (s *PoHTxState) getLock(src p2p.ID, p *types.PoHBlockPart) (bool, error) {
+	id := p2p.ID(p.Address)
+	s.lockMap[id].Lock()
+	defer s.lockMap[id].Unlock()
+	return s.handleBlockPart(src, p)
 }

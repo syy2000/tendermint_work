@@ -129,7 +129,9 @@ func (memR *Reactor) OnStart() error {
 	if !memR.config.Broadcast {
 		memR.Logger.Info("Tx broadcasting is disabled")
 	}
+	// fmt.Println("尝试寻找txState reactor")
 	if memR.TxState != nil {
+		// fmt.Println("尝试启动reactor")
 		switch memR.TxState.(type) {
 		case *poH.PoHTxState:
 			go memR.handleBroadcastPoHStateRoutine()
@@ -187,6 +189,7 @@ func (memR *Reactor) RemovePeer(peer p2p.Peer, reason interface{}) {
 // It adds any received transactions to the mempool.
 func (memR *Reactor) ReceiveEnvelope(e p2p.Envelope) {
 	memR.Logger.Debug("Receive", "src", e.Src, "chId", e.ChannelID, "msg", e.Message)
+	// fmt.Println("收到来自其他节点事务消息")
 	switch msg := e.Message.(type) {
 	case *protomem.Txs:
 		protoTxs := msg.GetTxs()
@@ -218,6 +221,7 @@ func (memR *Reactor) ReceiveEnvelope(e p2p.Envelope) {
 		}
 	case *tmproto.PoHBlockPart:
 		p := types.NewPoHBlockPartFromProto(msg)
+		// fmt.Println("收到来自其他节点的区块 poh")
 		if memR.TxState != nil {
 			memR.TxState.AddMessage(&types.TxMessage{
 				Src:  e.Src.ID(),
@@ -341,10 +345,11 @@ func (m *TxsMessage) String() string {
 
 func (memR *Reactor) handleBroadcastPoHStateRoutine() {
 	s := memR.TxState.(*poH.PoHTxState)
-
+	// fmt.Println("我启动了！ reactor")
 	for {
 		select {
 		case ps := <-s.OutPoHBlockPartSetChan:
+			// fmt.Println("尝试发送给其他节点 poh")
 			total := ps.Total()
 			for i := uint32(0); i < total; i++ {
 				go func(j int) {
@@ -369,6 +374,7 @@ func (memR *Reactor) handlePeerTx() {
 		select {
 		case tx := <-txChan:
 			memTx := tx.(*types.MemTx)
+			// fmt.Println("正在执行MemTx")
 			go memR.mempool.CheckTxReactor(memTx, nil, mempool.TxInfo{})
 		}
 	}
