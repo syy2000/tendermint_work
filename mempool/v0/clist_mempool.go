@@ -272,7 +272,7 @@ func (mem *CListMempool) CheckTx(
 	mem.updateMtx.RLock()
 	// use defer to unlock mutex because application (*local client*) might panic
 	defer mem.updateMtx.RUnlock()
-
+	// mem.logger.Info("checkTx!", "originTx", string(originTx))
 	//modified by syy donghao
 	//txSize := len(tx)
 	//txSize := len(tx.ToProto().OriginTx)
@@ -350,7 +350,7 @@ func (mem *CListMempool) CheckTxReactor(
 	mem.updateMtx.RLock()
 	// use defer to unlock mutex because application (*local client*) might panic
 	defer mem.updateMtx.RUnlock()
-
+	// mem.logger.Info("CheckTxReactor!", "originTx", string(rawtx.GetTx()), "timeStamp", rawtx.GetTimestamp())
 	//modified by syy donghao
 	//txSize := len(tx)
 	//txSize := len(tx.ToProto().OriginTx)
@@ -365,6 +365,8 @@ func (mem *CListMempool) CheckTxReactor(
 		// modified by donghaos
 		TxOp:        ops,
 		TxObAndAttr: values,
+		TxTimehash:  rawtx.TxTimehash,
+		Cb:          rawtx.Cb,
 	}
 
 	/*
@@ -566,8 +568,10 @@ func (mem *CListMempool) resCbFirstTime(
 			}
 			// timestamp
 			tempTx := &tx
+			mem.logger.Info("判断是否等于nil中")
+			mem.logger.Info("时间检查", "timestamp", tx.TxTimehash)
 			if tx.GetTimestamp() == nil {
-				//mem.logger.Info("不等于nil")
+				mem.logger.Info("不等于nil")
 				mem.timeStampGen.AddTx(&tx)
 				txWithTimestamp := mem.timeStampGen.GetTx(tx.GetId())
 				tempTx = txWithTimestamp.(*types.MemTx)

@@ -192,6 +192,7 @@ func (memR *Reactor) ReceiveEnvelope(e p2p.Envelope) {
 	// fmt.Println("收到来自其他节点事务消息")
 	switch msg := e.Message.(type) {
 	case *protomem.Txs:
+		memR.Logger.Info("出问题了，还在广播")
 		protoTxs := msg.GetTxs()
 		if len(protoTxs) == 0 {
 			memR.Logger.Error("received empty txs from peer", "src", e.Src)

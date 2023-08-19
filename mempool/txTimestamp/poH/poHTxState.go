@@ -42,6 +42,8 @@ type PoHTxState struct {
 
 	lockMap map[p2p.ID]*sync.RWMutex
 
+	blockChanMap map[p2p.ID]chan *types.PoHBlock
+
 	mempool *PoHMempool
 	gen     *PoHGenerator
 	// 来自其他节点的消息输入
@@ -99,6 +101,7 @@ func NewPoHTxState(
 	s.Logger = logger
 
 	s.lockMap = make(map[p2p.ID]*sync.RWMutex)
+	s.blockChanMap = make(map[p2p.ID]chan *types.PoHBlock)
 	return s
 }
 
@@ -117,6 +120,16 @@ func (s *PoHTxState) AddValidator(validator *types.Validator) bool {
 	s.ValidatorMap[peerID] = validator
 	s.cache[peerID] = NewMessageCache()
 	s.lockMap[peerID] = &sync.RWMutex{}
+	s.blockChanMap[peerID] = make(chan *types.PoHBlock, 1000)
+	go func(id p2p.ID) {
+		ch := s.blockChanMap[id]
+		for {
+			select {
+			case b := <-ch:
+				s.handleBlock(p2p.ID(b.Address), b)
+			}
+		}
+	}(peerID)
 	// s.PoHValidatorTimeMap[peerID] = v.GetNowTimestamp().GetTimestamp()
 	return true
 }
@@ -132,6 +145,7 @@ func (s *PoHTxState) RemoveValidator(peerID p2p.ID) bool {
 	delete(s.ValidatorMap, peerID)
 	delete(s.cache, peerID)
 	delete(s.PoHValidatorTimeMap, peerID)
+	delete(s.blockChanMap, peerID)
 	return true
 }
 
@@ -289,10 +303,11 @@ func (s *PoHTxState) handleBlockPart(src p2p.ID, p *types.PoHBlockPart) (bool, e
 			return false, err
 		}
 		b := types.NewPoHBlockFromProto(pbb)
-		f, err := s.handleBlock(src, b)
-		if !f || err != nil {
-			return f, err
-		}
+		// f, err := s.handleBlock(src, b)
+		s.blockChanMap[src] <- b
+		// if !f || err != nil {
+		// 	return f, err
+		// }
 	}
 	return true, nil
 }

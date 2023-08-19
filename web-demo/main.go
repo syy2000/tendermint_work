@@ -354,11 +354,11 @@ func insertAllLocal(money int) {
 			}(i)
 		}
 		go func() {
-			for i := 0; i < len(pubkeys); i++ {
+			for i := 0; i < 100; i++ {
 				taskCh <- i
 			}
 		}()
-		for i := 0; i < len(pubkeys); i++ {
+		for i := 0; i < 100; i++ {
 			ot := <-backCh
 			if (i+1)%100 == 0 {
 				fmt.Println(ot, (i+1)/10, "%")
