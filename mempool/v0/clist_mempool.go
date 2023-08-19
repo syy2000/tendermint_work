@@ -568,10 +568,10 @@ func (mem *CListMempool) resCbFirstTime(
 			}
 			// timestamp
 			tempTx := &tx
-			mem.logger.Info("判断是否等于nil中")
-			mem.logger.Info("时间检查", "timestamp", tx.TxTimehash)
+			// mem.logger.Info("判断是否等于nil中")
+			// mem.logger.Info("时间检查", "timestamp", tx.TxTimehash)
 			if tx.GetTimestamp() == nil {
-				mem.logger.Info("不等于nil")
+				// mem.logger.Info("不等于nil")
 				mem.timeStampGen.AddTx(&tx)
 				txWithTimestamp := mem.timeStampGen.GetTx(tx.GetId())
 				tempTx = txWithTimestamp.(*types.MemTx)
@@ -901,7 +901,7 @@ func (m *MemTxHeap) Pop() any {
 }
 
 func (mem *CListMempool) HandleTxToHeap(tx *mempoolTx) {
-	mem.logger.Info("Heap添加")
+	// mem.logger.Info("Heap添加")
 	mem.heapMtx.Lock()
 	defer mem.heapMtx.Unlock()
 	mem.undo_txs++

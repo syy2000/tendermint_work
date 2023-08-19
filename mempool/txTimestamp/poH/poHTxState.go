@@ -251,7 +251,7 @@ func (s *PoHTxState) hasValidator(id p2p.ID) bool {
 
 // TODO 定义错误类型
 func (s *PoHTxState) handleBlockPart(src p2p.ID, p *types.PoHBlockPart) (bool, error) {
-	s.Logger.Info("我成功收到了消息", "address", p.Address, "height", p.Height)
+	// s.Logger.Info("我成功收到了消息", "address", p.Address, "height", p.Height)
 	src = p2p.ID(p.Address)
 	if !s.hasValidator(p2p.ID(p.Address)) {
 		return false, &types.TimestampNormalError{}
@@ -282,7 +282,7 @@ func (s *PoHTxState) handleBlockPart(src p2p.ID, p *types.PoHBlockPart) (bool, e
 	for i, h := range c.HeightSlice {
 		ps = c.PartSets[h]
 		if ps.IsComplete() {
-			s.Logger.Info("区块完整了", "height", p.Height, "total", p.Total, "index", p.Index, "address", p.Address)
+			// s.Logger.Info("区块完整了", "height", p.Height, "total", p.Total, "index", p.Index, "address", p.Address)
 			res = append(res, ps)
 			index = i + 1
 			delete(c.PartSets, h)
@@ -328,7 +328,7 @@ func (s *PoHTxState) handleBlock(src p2p.ID, b *types.PoHBlock) (bool, error) {
 	if !flag {
 		return false, &types.TimestampNormalError{}
 	}
-	s.Logger.Info("我收到了区块 ", "address", b.Address, "height", b.Height, "time", v.lastTimestamp.GetTimestamp())
+	// s.Logger.Info("我收到了区块 ", "address", b.Address, "height", b.Height, "time", v.lastTimestamp.GetTimestamp())
 	// 输出，需要改timestamp到tx，或者把Tx结构定下来也可以
 	for _, tx := range b.PoHTimestamps {
 		memTx := &types.MemTx{
