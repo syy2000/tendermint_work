@@ -76,6 +76,8 @@ func (v *PoHValidator) Validate(block types.TxBlock) bool {
 	v.Height++
 	if b.PoHTimestamps != nil && len(b.PoHTimestamps) != 0 {
 		v.lastTimestamp = b.PoHTimestamps[len(b.PoHTimestamps)-1]
+		v.lastPoH = b.PoHTimestamps[len(b.PoHTimestamps)-1].Out
+		v.Round = b.PoHTimestamps[len(b.PoHTimestamps)-1].Round
 	}
 	return true
 }
@@ -85,7 +87,7 @@ func (v *PoHValidator) ValidateMes(m *types.PoHTimestamp) bool {
 	h.Write(m.Message)
 	h.Write(m.Input)
 	res := h.Sum(nil)
-	return bytes.Compare(res, m.Out) == 0
+	return bytes.Equal(res, m.Out)
 }
 
 func (v *PoHValidator) ValidateTick(poHStart []byte, startRound int64, poHEnd []byte, endRound int64) bool {
@@ -95,7 +97,7 @@ func (v *PoHValidator) ValidateTick(poHStart []byte, startRound int64, poHEnd []
 		h.Write(now)
 		now = h.Sum(nil)
 	}
-	return bytes.Compare(now, poHEnd) == 0
+	return bytes.Equal(now, poHEnd)
 }
 
 func (v *PoHValidator) ValidateBlock(b *types.PoHBlock) (bool, int) {
