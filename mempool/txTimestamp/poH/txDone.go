@@ -2,6 +2,7 @@ package poH
 
 import (
 	"bytes"
+	"fmt"
 	// "fmt"
 
 	"github.com/emirpasic/gods/maps/treemap"
@@ -48,6 +49,10 @@ func (t *TxDone) Done(tx types.TxWithTimestamp) {
 	t.mtx.Lock()
 	defer t.mtx.Unlock()
 	// fmt.Println("-------------------------------   done %v  --------------------------------", tx.GetTimestamp().GetTimestamp())
+	_, ok := t.txMap.Get(tx)
+	if !ok {
+		fmt.Printf("------------------------------ error! 删除不存在的key time=%v tx=%v ----------------------------\n", tx.GetTimestamp().GetTimestamp(), string(tx.GetTx()))
+	}
 	t.txMap.Remove(tx)
 }
 

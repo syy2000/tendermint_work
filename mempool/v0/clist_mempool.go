@@ -584,7 +584,7 @@ func (mem *CListMempool) resCbFirstTime(
 			//modified by syy
 			mem.txIdToMempoolTx.Store(memTx.ID(), memTx)
 			// mem.addTx(memTx)
-			// mem.logger.Info("加入heap前", "memTx", memTx, "tempTx", tempTx)
+			mem.logger.Info("加入heap前", "memTx", memTx, "tempTx", tempTx)
 			mem.HandleTxToHeap(memTx)
 			mem.logger.Debug(
 				"added good transaction",
