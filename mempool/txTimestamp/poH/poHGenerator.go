@@ -3,6 +3,7 @@ package poH
 import (
 	"crypto/sha256"
 	"sync"
+	"time"
 
 	"github.com/tendermint/tendermint/libs/log"
 	tmsync "github.com/tendermint/tendermint/libs/sync"
@@ -158,7 +159,9 @@ func (gen *PoHGenerator) generate() {
 			gen.flag = false
 			gen.mtx.Unlock()
 			return
-		default:
+		// default:
+		case <-time.After(5 * time.Microsecond):
+			// 一秒触发20w次
 			gen.generateNextRoundAndOutput()
 		}
 	}
