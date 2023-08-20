@@ -354,11 +354,11 @@ func insertAllLocal(money int) {
 			}(i)
 		}
 		go func() {
-			for i := 0; i < 100; i++ {
+			for i := 0; i < len(pubkeys); i++ {
 				taskCh <- i
 			}
 		}()
-		for i := 0; i < 100; i++ {
+		for i := 0; i < len(pubkeys); i++ {
 			ot := <-backCh
 			if (i+1)%100 == 0 {
 				fmt.Println(ot, (i+1)/10, "%")
@@ -578,6 +578,7 @@ func TpsCount(msg string) {
 	if err != nil {
 		panic(err)
 	}
+	fmt.Println(string(out))
 	var rsp RPCResponse
 	json.Unmarshal(out, &rsp)
 	tm, _ := strconv.ParseFloat(rsp.Result.TPS, 64)

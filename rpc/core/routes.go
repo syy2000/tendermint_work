@@ -46,6 +46,16 @@ var Routes = map[string]*rpc.RPCFunc{
 
 	// evidence API
 	"broadcast_evidence": rpc.NewRPCFunc(BroadcastEvidence, "evidence"),
+
+	// 查询交易的上链情况
+	"search_tx": rpc.NewRPCFunc(SearchTx, "tx,prove", rpc.Cacheable()),
+	// 除了完成search_tx的工作之外，还查询了事务所在区块的提交时间。
+	// 测试时，建议使用tx_time，因为它的功能覆盖面更广
+	"tx_time": rpc.NewRPCFunc(TxTime, "tx,prove", rpc.Cacheable()),
+	// 查询from到to之间区块的平均吞吐量
+	"tps": rpc.NewRPCFunc(TpsCount, "from,to"),
+	// 查询from到to之间区块的峰值吞吐量
+	"tpsm": rpc.NewRPCFunc(TpsmCount, "from,to"),
 }
 
 // AddUnsafeRoutes adds unsafe routes.

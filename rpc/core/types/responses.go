@@ -249,3 +249,21 @@ type ResultEvent struct {
 	Data   types.TMEventData   `json:"data"`
 	Events map[string][]string `json:"events"`
 }
+
+// ============== 新添加部分 =========================
+
+// 查询事务的上链情况、事务所在区块的提交时间
+type ResultTime struct {
+	Hash     bytes.HexBytes         `json:"hash"`
+	Height   int64                  `json:"height"`
+	Index    uint32                 `json:"index"`
+	TxResult abci.ResponseDeliverTx `json:"tx_result"`
+	Tx       []byte                 `json:"tx"`
+	Proof    types.TxProof          `json:"proof,omitempty"`
+	Time     int64                  `json:"commit_block_time"`
+}
+
+// 查询吞吐量的返回接口，使用string类型存储一个浮点数
+type ResultTPS struct {
+	TPS string `json:"tps"`
+}
