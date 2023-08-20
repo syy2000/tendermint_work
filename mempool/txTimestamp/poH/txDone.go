@@ -42,18 +42,29 @@ func (t *TxDone) AddTxToTxDone(tx types.TxWithTimestamp) {
 	t.mtx.Lock()
 	defer t.mtx.Unlock()
 	// fmt.Println("-------------------------------   add %v   --------------------------------", tx.GetTimestamp().GetTimestamp())
-	t.txMap.Put(tx, 1)
+	v, ok := t.txMap.Get(tx)
+	if !ok {
+		v = 1
+	} else {
+		v = v.(int) + 1
+	}
+	t.txMap.Put(tx, v)
 }
 
 func (t *TxDone) Done(tx types.TxWithTimestamp) {
 	t.mtx.Lock()
 	defer t.mtx.Unlock()
 	// fmt.Println("-------------------------------   done %v  --------------------------------", tx.GetTimestamp().GetTimestamp())
-	_, ok := t.txMap.Get(tx)
+	v, ok := t.txMap.Get(tx)
 	if !ok {
 		fmt.Printf("------------------------------ error! 删除不存在的key time=%v tx=%v ----------------------------\n", tx.GetTimestamp().GetTimestamp(), string(tx.GetTx()))
 	}
+	value := v.(int)
 	t.txMap.Remove(tx)
+	if value > 1 {
+		value = value - 1
+		t.txMap.Put(tx, v)
+	}
 }
 
 func (t *TxDone) GetNowMin() (int64, bool) {

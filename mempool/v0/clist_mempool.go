@@ -396,20 +396,20 @@ func (mem *CListMempool) CheckTxReactor(
 	}
 
 	// 需要cache吗？
-	if !mem.cache.Push(tx.OriginTx) { // if the transaction already exists in the cache
-		// Record a new sender for a tx we've already seen.
-		// Note it's possible a tx is still in the cache but no longer in the mempool
-		// (eg. after committing a block, txs are removed from mempool but not cache),
-		// so we only record the sender for txs still in the mempool.
-		if e, ok := mem.txsMap.Load(tx.OriginTx.Key()); ok {
-			memTx := e.(*clist.CElement).Value.(*mempoolTx)
-			memTx.senders.LoadOrStore(txInfo.SenderID, true)
-			// TODO: consider punishing peer for dups,
-			// its non-trivial since invalid txs can become valid,
-			// but they can spam the same tx with little cost to them atm.
-		}
-		return mempool.ErrTxInCache
-	}
+	// if !mem.cache.Push(tx.OriginTx) { // if the transaction already exists in the cache
+	// 	// Record a new sender for a tx we've already seen.
+	// 	// Note it's possible a tx is still in the cache but no longer in the mempool
+	// 	// (eg. after committing a block, txs are removed from mempool but not cache),
+	// 	// so we only record the sender for txs still in the mempool.
+	// 	if e, ok := mem.txsMap.Load(tx.OriginTx.Key()); ok {
+	// 		memTx := e.(*clist.CElement).Value.(*mempoolTx)
+	// 		memTx.senders.LoadOrStore(txInfo.SenderID, true)
+	// 		// TODO: consider punishing peer for dups,
+	// 		// its non-trivial since invalid txs can become valid,
+	// 		// but they can spam the same tx with little cost to them atm.
+	// 	}
+	// 	return mempool.ErrTxInCache
+	// }
 
 	reqRes := mem.proxyAppConn.CheckTxAsync(abci.RequestCheckTx{Tx: tx.OriginTx.ToProto()})
 	reqRes.SetCallback(mem.reqResCb(tx, txInfo.SenderID, txInfo.SenderP2PID, cb))
@@ -584,7 +584,7 @@ func (mem *CListMempool) resCbFirstTime(
 			//modified by syy
 			mem.txIdToMempoolTx.Store(memTx.ID(), memTx)
 			// mem.addTx(memTx)
-			mem.logger.Info("加入heap前", "memTx", memTx, "tempTx", tempTx)
+			// mem.logger.Info("加入heap前", "memTx", memTx, "tempTx", tempTx)
 			mem.HandleTxToHeap(memTx)
 			mem.logger.Debug(
 				"added good transaction",
