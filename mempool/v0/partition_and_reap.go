@@ -136,7 +136,9 @@ func (mem *CListMempool) UpdateBlockStatusMappingTable() {
 		if !ok {
 			continue
 		}
-		mem.blockStatusMappingTable.Store(key, mem.queryBlockID(color))
+		if ok := mem.blockStatusMappingTable.Store(key, mem.queryBlockID(color)); !ok {
+			panic("error : block status mapping table disabled!")
+		}
 	}
 }
 

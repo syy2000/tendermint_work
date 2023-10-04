@@ -91,7 +91,7 @@ func mptSet(n0 Node, key []byte, value Stringer) (Node, bool) {
 				path:  n.path[:commonLen],
 				child: QuitedExtendNode(n, commonLen),
 			}
-			if rplc, ok := mptSet(extendNode.child, key[:commonLen], value); !ok {
+			if rplc, ok := mptSet(extendNode.child, key[commonLen:], value); !ok {
 				return n, false
 			} else {
 				extendNode.child = rplc
