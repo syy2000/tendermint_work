@@ -32,6 +32,7 @@ func TestMPT(t *testing.T) {
 	mpt.useHash = true
 	cnt := 0
 	start := time.Now()
+	keys := []byte{}
 	for i := 0; i < len(testNameList); i++ {
 		for j := 0; j < len(testNameList[i]); j++ {
 			for u := 0; u < len(testNameList); u++ {
