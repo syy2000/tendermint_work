@@ -23,7 +23,9 @@ func PrefixIndex(u byte) int {
 		return out - int(int8('0'))
 	} else if 'a' <= u && u <= 'f' {
 		return out - int(int8('a')) + 10
-	} else {
+	} else if 'A' <= u && u <= 'F' {
+		return out - int(int8('A')) + 10
+	}else{
 		return -1
 	}
 }
