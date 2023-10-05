@@ -52,7 +52,7 @@ func (om *OrderedMap) hash() []byte {
 	var b bytes.Buffer
 	for n != nil {
 		valueHash := tmhash.Sum([]byte(n.value.String()))
-		nodeHash := tmhash.Sum(bytes.Join([][]byte{valueHash, []byte(n.key)}, []byte{}))
+		nodeHash := tmhash.Sum(join2Bytes(valueHash, []byte(n.key)))
 		if _, err := b.Write(nodeHash); err != nil {
 			panic(err)
 		}

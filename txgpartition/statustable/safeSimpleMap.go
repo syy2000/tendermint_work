@@ -58,7 +58,7 @@ func (m *SafeSimpleMap) hash() []byte {
 			panic("this should never happen! Maybe you have been clearing this mapping table while calculating its hash, which shuoldn't happen when everything is right!")
 		}
 		valueHash := tmhash.Sum([]byte(n.String()))
-		nodeHash := tmhash.Sum(bytes.Join([][]byte{valueHash, []byte(key)}, []byte{}))
+		nodeHash := tmhash.Sum(join2Bytes(valueHash, []byte(key)))
 		if _, err := b.Write(nodeHash); err != nil {
 			panic(err)
 		}

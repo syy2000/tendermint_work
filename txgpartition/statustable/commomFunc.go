@@ -1,6 +1,9 @@
 package statustable
 
-import "fmt"
+import (
+	"bytes"
+	"fmt"
+)
 
 func LonggestCommonPrefix(key1, key2 []byte) int {
 	var n int
@@ -25,7 +28,7 @@ func PrefixIndex(u byte) int {
 		return out - int(int8('a')) + 10
 	} else if 'A' <= u && u <= 'F' {
 		return out - int(int8('A')) + 10
-	}else{
+	} else {
 		return -1
 	}
 }
@@ -35,4 +38,8 @@ func Str2Hex(k string) []byte {
 }
 func Byte2Hex(k []byte) []byte {
 	return []byte(fmt.Sprintf("%x", k))
+}
+
+func join2Bytes(a, b []byte) []byte {
+	return bytes.Join([][]byte{a, b}, []byte{})
 }

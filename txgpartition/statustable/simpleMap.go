@@ -42,7 +42,7 @@ func (sm *SimpleMap) hash() []byte {
 	for _, key := range keySet {
 		n := sm.queryTable[key]
 		valueHash := tmhash.Sum([]byte(n.String()))
-		nodeHash := tmhash.Sum(bytes.Join([][]byte{valueHash, []byte(key)}, []byte{}))
+		nodeHash := tmhash.Sum(join2Bytes(valueHash, []byte(key)))
 		if _, err := b.Write(nodeHash); err != nil {
 			panic(err)
 		}

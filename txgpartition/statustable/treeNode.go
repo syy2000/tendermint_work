@@ -1,6 +1,8 @@
 package statustable
 
-import "github.com/tendermint/tendermint/crypto/tmhash"
+import (
+	"github.com/tendermint/tendermint/crypto/tmhash"
+)
 
 var (
 	nilHandler = []byte("0")
@@ -26,18 +28,18 @@ func (branchNode *BranchNode) hash() []byte {
 	var hashHandler []byte
 	for _, child := range branchNode.childs {
 		if child == nil {
-			hashHandler = append(hashHandler, nilHandler...)
+			hashHandler = join2Bytes(hashHandler, nilHandler)
 		} else {
-			hashHandler = append(hashHandler, child.hash()...)
+			hashHandler = join2Bytes(hashHandler, child.hash())
 		}
 	}
 	return tmhash.Sum(hashHandler)
 }
 func (extendNode *ExtendNode) hash() []byte {
 	if extendNode.child == nil {
-		return tmhash.Sum(append(nilHash, extendNode.path...))
+		return tmhash.Sum(join2Bytes(nilHash, extendNode.path))
 	} else {
-		return tmhash.Sum(append(extendNode.child.hash(), extendNode.path...))
+		return tmhash.Sum(join2Bytes(extendNode.child.hash(), extendNode.path))
 	}
 }
 func (valueNode *ValueNode) hash() []byte {

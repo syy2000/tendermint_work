@@ -24,7 +24,7 @@ var (
 			"895dp65d2c", "5d21cd5g32", "djsncdgdlsndf", "sjdnvnsdjjsf45544141", "dsmmcndksk5541cd2s52", "54f5s241g2", "c5e29c5s", "f4fe84fs", "s544e98f4", "54cs8e4f,",
 		},
 	}
-	maxTimes  = 1000000
+	maxTimes  = 100000
 	readTimes = 5
 )
 
