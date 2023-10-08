@@ -25,7 +25,7 @@ type ValueNode struct {
 }
 
 func (branchNode *BranchNode) hash() []byte {
-	var hashHandler []byte
+	var hashHandler = []byte("b")
 	for _, child := range branchNode.childs {
 		if child == nil {
 			hashHandler = join2Bytes(hashHandler, nilHandler)
@@ -36,12 +36,16 @@ func (branchNode *BranchNode) hash() []byte {
 	return tmhash.Sum(hashHandler)
 }
 func (extendNode *ExtendNode) hash() []byte {
+	var hashHandler = []byte("e")
 	if extendNode.child == nil {
-		return tmhash.Sum(join2Bytes(nilHash, extendNode.path))
+		hashHandler = join2Bytes(hashHandler, nilHash)
+		hashHandler = join2Bytes(hashHandler, extendNode.path)
 	} else {
-		return tmhash.Sum(join2Bytes(extendNode.child.hash(), extendNode.path))
+		hashHandler = join2Bytes(hashHandler, extendNode.child.hash())
+		hashHandler = join2Bytes(hashHandler, extendNode.path)
 	}
+	return tmhash.Sum(hashHandler)
 }
 func (valueNode *ValueNode) hash() []byte {
-	return tmhash.Sum([]byte("1" + valueNode.value.String()))
+	return tmhash.Sum([]byte("v" + valueNode.value.String()))
 }

@@ -3,6 +3,7 @@ package statustable
 import (
 	"bytes"
 	"fmt"
+	"os"
 )
 
 func LonggestCommonPrefix(key1, key2 []byte) int {
@@ -42,4 +43,15 @@ func Byte2Hex(k []byte) []byte {
 
 func join2Bytes(a, b []byte) []byte {
 	return bytes.Join([][]byte{a, b}, []byte{})
+}
+
+func PathExists(path string) (bool, error) {
+	_, err := os.Stat(path)
+	if err == nil {
+		return true, nil
+	}
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	return false, err
 }

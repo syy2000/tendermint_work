@@ -1,6 +1,7 @@
 package test
 
 import (
+	"encoding/hex"
 	"fmt"
 	"testing"
 	"time"
@@ -20,4 +21,10 @@ func TestHash(t *testing.T) {
 		set = tmhash.Sum(set0)
 	}
 	fmt.Printf("%x : %s\n", set[:16], time.Since(start))
+
+	u := fmt.Sprintf("%x", "donghao")
+	src := make([]byte, 7)
+	fmt.Println(len(u), u)
+	fmt.Println(hex.Decode(src, []byte(u)))
+	fmt.Println(string(src))
 }

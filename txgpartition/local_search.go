@@ -59,6 +59,12 @@ func Init_Partitioning(g TxGraph, K int, _ float64) (*Partitioning, *ColorMap, *
 					TxNodeQueue.PushBack(n)
 				}
 			} else if !g.Visited(b) {
+				// update color
+				if cnt+1 > Lmax {
+					cnt = 0
+					startColor++
+				}
+				// choose children
 				bschild := g.QueryNodeChild(b)
 				tmp := make([]TxNode, 0, len(bschild))
 				for _, n := range bschild {
@@ -68,6 +74,7 @@ func Init_Partitioning(g TxGraph, K int, _ float64) (*Partitioning, *ColorMap, *
 					}
 				}
 				// the more priceful, the latter in tmp list
+				costMap := make(map[int64]int)
 				typeMap := make(map[int64]int)
 				childMap := make(map[int64]int)
 				for _, n := range tmp {
@@ -76,6 +83,9 @@ func Init_Partitioning(g TxGraph, K int, _ float64) (*Partitioning, *ColorMap, *
 					for _, father := range g.QueryFather(n) {
 						fatherColor := partitioning.Get(father)
 						if !seen[fatherColor] {
+							if colorMap.WillResultInEdgeAdd(fatherColor, startColor) {
+								costMap[nodeID]++
+							}
 							seen[fatherColor] = true
 							typeMap[nodeID]++
 						}
@@ -83,6 +93,11 @@ func Init_Partitioning(g TxGraph, K int, _ float64) (*Partitioning, *ColorMap, *
 					childMap[nodeID] = g.InDegree(n)
 				}
 				compareBlockNodeMorePriceful := func(a, b TxNode) bool {
+					if costA, costB := costMap[g.NodeIndex(a)], costMap[g.NodeIndex(b)]; costA < costB {
+						return true
+					} else if costA > costB {
+						return false
+					}
 					if typeBeforeA, typeBeforeB := typeMap[g.NodeIndex(a)], typeMap[g.NodeIndex(b)]; typeBeforeA < typeBeforeB {
 						return true
 					} else if typeBeforeA > typeBeforeB {
@@ -106,15 +121,16 @@ func Init_Partitioning(g TxGraph, K int, _ float64) (*Partitioning, *ColorMap, *
 			}
 		} else if tx := TxNodeQueue.PopFront(); !g.Visited(tx) {
 			// generate a color
-			if cnt++; cnt > Lmax {
-				cnt = 1
-				startColor++
-			}
 			if startColor >= B+K {
 				panic(g.NodeIndex(tx))
 			}
 			partitioning.Set(tx, startColor)
 			txMap.Append(startColor, tx)
+			cnt++
+			if cnt+1 > Lmax {
+				cnt = 0
+				startColor++
+			}
 			for _, n := range g.QueryFather(tx) {
 				fatherColor := partitioning.Get(n)
 				colorMap.Add(fatherColor, startColor, EdgeWeight)
@@ -164,8 +180,8 @@ func Init_Partitioning(g TxGraph, K int, _ float64) (*Partitioning, *ColorMap, *
 					return false
 				}
 				return a.Less(b)
-
 			}
+
 			tmp = TxSortBetterFirst(tmp, compareNodeMorePriceful)
 			for _, n := range tmp {
 				TxNodeQueue.PushFront(n)
