@@ -126,14 +126,14 @@ func Init_Partitioning(g TxGraph, K int, _ float64) (*Partitioning, *ColorMap, *
 			}
 			partitioning.Set(tx, startColor)
 			txMap.Append(startColor, tx)
+			for _, n := range g.QueryFather(tx) {
+				fatherColor := partitioning.Get(n)
+				colorMap.Add(fatherColor, startColor, EdgeWeight)
+			}
 			cnt++
 			if cnt+1 > Lmax {
 				cnt = 0
 				startColor++
-			}
-			for _, n := range g.QueryFather(tx) {
-				fatherColor := partitioning.Get(n)
-				colorMap.Add(fatherColor, startColor, EdgeWeight)
 			}
 			// add its children
 			var tmp []TxNode
@@ -226,10 +226,18 @@ func SimpleMove(g TxGraph, K int, alpha float64, partitioning *Partitioning, col
 			moveToBigger := nodeColor+1 < txMap.Size() && float64(ColorSize[nodeColor+1]) < Lmax-1.0
 			moveToSmaller := nodeColor-1 >= g.BlockNodeNum() && float64(ColorSize[nodeColor-1]) < Lmax-1.0
 			j := 0
+			var biggerCut, smallerCut, selfCut int
 			for _, father := range FatherSet {
 				fatherColor := partitioning.Get(father)
 				if fatherColor == nodeColor {
 					moveToSmaller = false
+					selfCut++
+				}
+				if fatherColor == nodeColor-1 {
+					smallerCut++
+				}
+				if fatherColor == nodeColor+1 {
+					biggerCut++
 				}
 				fathers[j] = fatherColor
 				j++
@@ -239,22 +247,39 @@ func SimpleMove(g TxGraph, K int, alpha float64, partitioning *Partitioning, col
 				childColor := partitioning.Get(child)
 				if childColor == nodeColor {
 					moveToBigger = false
+					selfCut++
+				}
+				if childColor == nodeColor-1 {
+					smallerCut++
+				}
+				if childColor == nodeColor+1 {
+					biggerCut++
 				}
 				childs[j] = childColor
 				j++
 			}
 			var scoreBigger, scoreSmaller = 0, 0
+			dbiggerCut := biggerCut - selfCut
+			dsmallerCut := smallerCut - selfCut
 			if moveToBigger {
 				scoreBigger = colorMap.Score(nodeColor, nodeColor+1, childs, fathers)
-				moveToBigger = (scoreBigger > 0 || scoreBigger == 0 && ColorSize[nodeColor] > ColorSize[nodeColor+1])
+				moveToBigger = (scoreBigger > 0 ||
+					scoreBigger == 0 && dbiggerCut > 0 ||
+					scoreBigger == 0 && dbiggerCut == 0 && ColorSize[nodeColor] > ColorSize[nodeColor+1])
 			}
 			if moveToSmaller {
 				scoreSmaller = colorMap.Score(nodeColor, nodeColor-1, childs, fathers)
-				moveToSmaller = scoreSmaller > 0 || scoreSmaller == 0 && ColorSize[nodeColor] > ColorSize[nodeColor-1]
+				moveToSmaller = scoreSmaller > 0 ||
+					scoreSmaller == 0 && dsmallerCut > 0 ||
+					scoreSmaller == 0 && dsmallerCut == 0 && ColorSize[nodeColor] > ColorSize[nodeColor-1]
 			}
 			var dst int
+			compareScoreSmallerBetter := moveToBigger && moveToSmaller &&
+				(scoreSmaller > scoreBigger ||
+					scoreSmaller == scoreBigger && dsmallerCut > dbiggerCut ||
+					scoreSmaller == scoreBigger && dsmallerCut == dbiggerCut && ColorSize[nodeColor-1] < ColorSize[nodeColor+1])
 			if moveToBigger && moveToSmaller {
-				if scoreSmaller > scoreBigger {
+				if compareScoreSmallerBetter {
 					dst = nodeColor - 1
 				} else {
 					dst = nodeColor + 1
@@ -335,17 +360,40 @@ func AdvancedMove(g TxGraph, K int, alpha float64, partitioning *Partitioning, c
 				continue
 			}
 			A, B, fatherColor, childColor := calculateRangeAndColor(n)
-			maxp, maxscore, delta := -1, 0, 0
+			maxp, maxscore, cutDec, delta := -1, 0, 0, 0
 			for j := A; j < B; j++ {
 				if j == nodeColor || float64(ColorSize[j])+1.0 > Lmax {
 					continue
 				}
-				if s := colorMap.Score(nodeColor, j, childColor, fatherColor); s >= maxscore {
-					if s > maxscore || colorSizeNow-ColorSize[j] > delta {
-						maxp = j
-						maxscore = s
-						delta = colorSizeNow - ColorSize[j]
+				s := colorMap.Score(nodeColor, j, childColor, fatherColor)
+				// calculate cut
+				cd := 0
+				for _, color := range fatherColor {
+					if color == j {
+						cd++
 					}
+					if color == nodeColor {
+						cd--
+					}
+				}
+				for _, color := range childColor {
+					if color == j {
+						cd++
+					}
+					if color == nodeColor {
+						cd--
+					}
+				}
+				// choose best
+				betterChoiceWitness := s > maxscore ||
+					s == maxscore && cd > cutDec ||
+					s == maxscore && cd == cutDec && colorSizeNow-ColorSize[j] > delta
+				if betterChoiceWitness {
+					maxp = j
+					maxscore = s
+					cutDec = cd
+					delta = colorSizeNow - ColorSize[j]
+
 				}
 			}
 			if maxp != -1 && maxscore >= 0 {

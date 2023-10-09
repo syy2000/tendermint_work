@@ -25,6 +25,7 @@ type RandomSquare struct {
 	blockNodeFall           int
 	blockNodeNum, txNodeNum int
 	edgeNum                 int
+	blockNodeMap            map[int64]bool
 }
 
 var _ txp.TxGraph = (*RandomSquare)(nil)
@@ -55,13 +56,14 @@ func (n *SquareNode) SetID(id int) {
 // =================== CREATE GRAPH =====================================
 func NewRandomSquare(n int) *RandomSquare {
 	return &RandomSquare{
-		family:      make([]*SquareNode, n),
-		indegrees:   make([]int, n),
-		outdegrees:  make([]int, n),
-		fatherNodes: make([][]txp.TxNode, n),
-		childNodes:  make([][]txp.TxNode, n),
-		visitMap:    map[int64]bool{},
-		size:        n,
+		family:       make([]*SquareNode, n),
+		indegrees:    make([]int, n),
+		outdegrees:   make([]int, n),
+		fatherNodes:  make([][]txp.TxNode, n),
+		childNodes:   make([][]txp.TxNode, n),
+		visitMap:     map[int64]bool{},
+		blockNodeMap: map[int64]bool{},
+		size:         n,
 	}
 }
 func (rs *RandomSquare) RandomInit(blockRate float64) {
@@ -70,7 +72,8 @@ func (rs *RandomSquare) RandomInit(blockRate float64) {
 		rs.family[i] = NewRandomSquareNode()
 	}
 	sort.Slice(rs.family, func(i, j int) bool {
-		return rs.family[i].x < rs.family[j].x || rs.family[i].x == rs.family[j].x && rs.family[i].y < rs.family[j].y
+		// return rs.family[i].x < rs.family[j].x || rs.family[i].x == rs.family[j].x && rs.family[i].y < rs.family[j].y
+		return rs.family[i].x*rs.family[i].x+rs.family[i].y*rs.family[i].y < rs.family[j].x*rs.family[j].x+rs.family[j].y*rs.family[j].y
 	})
 	for i := 0; i < rs.size; i++ {
 		rs.family[i].SetID(i)
@@ -94,9 +97,17 @@ func (rs *RandomSquare) RandomInit(blockRate float64) {
 	for i := 0; cnt < rs.blockNodeNum; i++ {
 		if rs.outdegrees[i] == 0 {
 			rs.blockNodeFall = i
+			rs.blockNodeMap[rs.family[i].ID()] = true
 			cnt++
 		}
 	}
+}
+
+func (rs *RandomSquare) redo() {
+	for i := range rs.outdegrees {
+		rs.outdegrees[i] = len(rs.fatherNodes[i])
+	}
+	rs.visitMap = make(map[int64]bool)
 }
 
 // ================== NODE ==============================================
@@ -114,7 +125,7 @@ func (n *SquareNode) ID() int64 {
 
 // ==================== SQUARE ===========================================
 func (rs *RandomSquare) IsBlockNode(n txp.TxNode) bool {
-	return n.ID() <= int64(rs.blockNodeFall)
+	return rs.blockNodeMap[n.ID()]
 }
 func (rs *RandomSquare) InDegree(n txp.TxNode) int {
 	return rs.indegrees[n.ID()]
