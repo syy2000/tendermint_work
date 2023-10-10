@@ -8,6 +8,8 @@ modified : 2023/8/15 AM
 name : donghao
 */
 import (
+	"sort"
+
 	txp "github.com/tendermint/tendermint/txgpartition"
 )
 
@@ -78,4 +80,34 @@ func (mmp *CListMempool) FindZeroOutdegree() []txp.TxNode {
 		out = append(out, n)
 	}
 	return out
+}
+
+// only for test
+
+func (mmp *CListMempool) edgeNum() int {
+	u := 0
+	for _, tx := range mmp.workspace {
+		u += len(tx.parentTxs)
+	}
+	return u
+}
+
+func (mmp *CListMempool) maxDep() int {
+	u := -1
+	for _, tx := range mmp.workspace {
+		if t := len(tx.parentTxs); t > u {
+			u = t
+		}
+	}
+	return u
+}
+
+func (mmp *CListMempool) midDep() int {
+	u := make([]int, len(mmp.workspace))
+	for i, tx := range mmp.workspace {
+		u[i] = len(tx.parentTxs)
+	}
+	toSort := sort.IntSlice(u)
+	sort.Sort(toSort)
+	return toSort[toSort.Len()/2]
 }

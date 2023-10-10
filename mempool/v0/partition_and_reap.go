@@ -99,15 +99,15 @@ func (mem *CListMempool) FillWorkspace() {
 		return
 	}
 
-	start := time.Now()
 	fmt.Printf("=============== Partition Size : %d\n", mem.txNodeNum)
 
 	// 事务图生成
+	start := time.Now()
 	mem.ProcWorkspaceDependency()
 	fmt.Println("========== Generate Time : ", time.Since(start), len(mem.workspace))
-	start = time.Now()
 
 	// 事务图划分
+	start = time.Now()
 	mem.SplitWorkspace()
 	fmt.Println("========== Partition Time : ", time.Since(start), len(mem.workspace))
 	mem.partitionResult.PrintBasic()

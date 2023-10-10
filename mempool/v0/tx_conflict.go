@@ -11,6 +11,13 @@ func (mem *CListMempool) ProcWorkspaceDependency() {
 		tx.tx.TxId = int64(i)
 		mem.procTxDependency(tx)
 	}
+	for _, tx := range mem.blockNodes {
+		tx.inDegree = len(tx.childTxs)
+	}
+	for _, tx := range mem.workspace {
+		tx.inDegree = len(tx.childTxs)
+		tx.outDegree = len(tx.parentTxs)
+	}
 }
 
 // donghao =========================================================
@@ -100,6 +107,7 @@ func (mem *CListMempool) procTxDependency(memTx *mempoolTx) {
 			}
 		}
 	}
+
 	//modified by syy
 	//生成结点的邻接关系
 	for _, father := range blockDepMap {
@@ -112,7 +120,5 @@ func (mem *CListMempool) procTxDependency(memTx *mempoolTx) {
 
 func GenEdge(father, child *mempoolTx) {
 	father.childTxs = append(father.childTxs, child)
-	father.inDegree++
 	child.parentTxs = append(child.parentTxs, father)
-	child.outDegree++
 }
