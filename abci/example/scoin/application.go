@@ -155,7 +155,7 @@ func (app *Application) CheckTx(req abcitypes.RequestCheckTx) abcitypes.Response
 			return abcitypes.ResponseCheckTx{Code: codetype.CodeTypeBadNonce, GasWanted: 0, Log: string(req.Tx.OriginTx), Info: "nil insert"}
 		}
 		return abcitypes.ResponseCheckTx{Code: codetype.CodeTypeOK, GasWanted: 1, Log: string(req.Tx.OriginTx)}
-	} else if insert.Flag == int8(2) {
+	} else if insert.Flag == int8(2) || insert.Flag == int8(3) {
 
 		if err := json.Unmarshal(UnFilt(req.Tx.OriginTx), &buy); err != nil {
 			return abcitypes.ResponseCheckTx{Code: codetype.CodeTypeBadNonce, GasWanted: 0, Log: string(req.Tx.OriginTx), Info: "wrong json"}
@@ -284,7 +284,7 @@ func (app *Application) Execute(tx []byte) (abcitypes.ResponseDeliverTx, bool) {
 		} else {
 			return abcitypes.ResponseDeliverTx{Code: codetype.CodeTypeBadNonce}, false
 		}
-	} else if insert.Flag == int8(2) {
+	} else if insert.Flag == int8(2) || insert.Flag == int8(3) {
 
 		json.Unmarshal(UnFilt(tx), &buy)
 
@@ -392,8 +392,28 @@ func RWAnalyse(stx types.Tx) (op, address []string, err error) {
 			address = append(address, buy.To[i])
 		}
 		return
+	} else if insert.Flag == int8(3) {
+		err = json.Unmarshal(UnFilt(tx), &buy)
+		if err != nil {
+			return
+		}
+		for i := 0; i < len(buy.From); i++ {
+			for _, u := range TestList {
+				op = append(op, "write")
+				address = append(address, string(u)+buy.From[i])
+			}
+		}
+		for i := 0; i < len(buy.To); i++ {
+			for _, u := range TestList {
+				op = append(op, "write")
+				address = append(address, string(u)+buy.To[i])
+			}
+		}
+		return
 	} else {
 		err = errUnMarshalableTx
 		return
 	}
 }
+
+var TestList = "0123456789"

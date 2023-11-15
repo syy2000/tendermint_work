@@ -36,6 +36,9 @@ func (mem *CListMempool) ReapBlocks(n int) (int, []types.Txs) {
 
 	if mem.partitionResult == nil || mem.partitionResult.Empty() {
 		mem.logger.Info("========================== 工作区为空   初始化划分 =========================")
+		if mem.partitionResult.Empty() {
+			mem.logger.Info("================ Consensus Time ", time.Since(mem.startTime), "============================")
+		}
 		mem.partition_lock.Lock()
 		mem.FillWorkspace()
 		if mem.txNodeNum == 0 {
@@ -94,26 +97,30 @@ func (mem *CListMempool) FillWorkspace() {
 	mem.blockIDMap = make(map[int]int64)
 	mem.txsConflictMap = make(map[string]*txsConflictMapValue)
 
+	start := time.Now()
 	mem.moveTxsFromBufferToWorkspace()
 	if mem.txNodeNum == 0 {
 		return
 	}
+	fmt.Println("=============== Reap Time : ", time.Since(start), "====================")
 
-	fmt.Printf("=============== Partition Size : %d\n", mem.txNodeNum)
+	fmt.Printf("=============== Partition Size : %d====================\n", mem.txNodeNum)
 
 	// 事务图生成
-	start := time.Now()
+	start = time.Now()
 	mem.ProcWorkspaceDependency()
-	fmt.Println("========== Generate Time : ", time.Since(start), len(mem.workspace))
+	fmt.Println("========== Generate Time : ", time.Since(start), "====================")
+	fmt.Println("========== EdgeNum : ", mem.edgeNum(), "====================")
 
 	// 事务图划分
 	start = time.Now()
 	mem.SplitWorkspace()
-	fmt.Println("========== Partition Time : ", time.Since(start), len(mem.workspace))
+	fmt.Println("========== Partition Time : ", time.Since(start), "====================")
 	mem.partitionResult.PrintBasic()
 
 	mem.notifiedTxsAvailable = false
 	mem.notifyTxsAvailable()
+	mem.startTime = time.Now()
 }
 
 func (mem *CListMempool) moveTxsFromBufferToWorkspace() {

@@ -1,5 +1,9 @@
 package v0
 
+import "time"
+
+var tmused time.Duration
+
 // modified by syy
 type txsConflictMapValue struct {
 	RL []*mempoolTx
@@ -27,6 +31,7 @@ func (mem *CListMempool) procTxDependency(memTx *mempoolTx) {
 	//查找事务依赖表，找到“对象id+属性”的前序依赖
 	blockDepMap, depMap := map[int64]*mempoolTx{}, map[int64]*mempoolTx{}
 	seen := map[string]string{}
+	start := time.Now()
 	for index, txObAndAttr := range memTx.tx.TxObAndAttr {
 		op := memTx.tx.TxOp[index] // 读/写操作
 		if op0, ok := seen[txObAndAttr]; ok {
@@ -37,6 +42,7 @@ func (mem *CListMempool) procTxDependency(memTx *mempoolTx) {
 			seen[txObAndAttr] = op
 		}
 	}
+	tmused += time.Since(start)
 	for txObAndAttr, op := range seen {
 		if conflictMapValue, ok := mem.txsConflictMap[txObAndAttr]; ok {
 			switch op {

@@ -13,11 +13,11 @@ import (
 )
 
 const (
-	keyNumPerTx = 8
-	accountNum  = 100000
+	keyNumPerTx = 4
+	accountNum  = 10000
 	hot_rate    = 0.8
-	preBlockNum = 100
-	testTimes   = 10
+	preBlockNum = 80
+	testTimes   = 30
 )
 
 var (
@@ -63,14 +63,14 @@ func TestMain(t *testing.T) {
 			start := time.Now()
 			mem.ProcWorkspaceDependency()
 			time_used += time.Since(start)
-			edges = mem.edgeNum()
+			edges += mem.edgeNum()
 			zero_outdegree = len(mem.FindZeroOutdegree()) - preBlockNum
 			max_deps = mem.maxDep()
 			mid_deps = mem.midDep()
 		}
 		time_used /= time.Duration(testTimes)
 		writeXlsxFunc(2, i+1, fmt.Sprintf("%.2f", float64(time_used)/float64(time.Millisecond)))
-		writeXlsxFunc(3, i+1, fmt.Sprint(edges))
+		writeXlsxFunc(3, i+1, fmt.Sprint(edges/testTimes))
 		writeXlsxFunc(4, i+1, fmt.Sprint(zero_outdegree))
 		writeXlsxFunc(5, i+1, fmt.Sprint(max_deps))
 		writeXlsxFunc(6, i+1, fmt.Sprint(mid_deps))

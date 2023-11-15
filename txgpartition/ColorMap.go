@@ -155,7 +155,10 @@ func CalculatePartitioningQualityByColorMap(c *ColorMap) int {
 	u := 0
 	for i := 0; i < c.size; i++ {
 		for j := 0; j < c.size; j++ {
-			if c.Has(j, i) && i != j {
+			if i == j {
+				continue
+			}
+			if c.Has(j, i) {
 				u++
 			}
 		}

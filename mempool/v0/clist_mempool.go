@@ -6,6 +6,7 @@ import (
 	"errors"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	abci "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/config"
@@ -93,6 +94,7 @@ type CListMempool struct {
 	// only for test
 	blockIDCnter int64
 	blockIDMap   map[int]int64
+	startTime    time.Time
 
 	// txHeap
 	memTxHeap *MemTxHeap
