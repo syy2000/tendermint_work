@@ -36,7 +36,7 @@ func (mem *CListMempool) ReapBlocks(n int) (int, []types.Txs) {
 
 	if mem.partitionResult == nil || mem.partitionResult.Empty() {
 		mem.logger.Info("========================== 工作区为空   初始化划分 =========================")
-		if mem.partitionResult.Empty() {
+		if mem.partitionResult != nil {
 			mem.logger.Info("================ Consensus Time ", time.Since(mem.startTime), "============================")
 		}
 		mem.partition_lock.Lock()
