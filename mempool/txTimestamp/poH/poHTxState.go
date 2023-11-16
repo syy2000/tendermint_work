@@ -208,7 +208,7 @@ func (s *PoHTxState) OnStart() error {
 }
 
 func (s *PoHTxState) handleCreateTxBlock() {
-	// s.Logger.Info("尝试发送poh区块", "height", s.Height)
+	s.Logger.Info("尝试发送poh区块", "height", s.Height)
 	txs := s.mempool.GetTimestamps()
 	flag := false
 	for _, tx := range txs {
