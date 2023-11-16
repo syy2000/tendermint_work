@@ -328,7 +328,7 @@ func (s *PoHTxState) handleBlock(src p2p.ID, b *types.PoHBlock) (bool, error) {
 	if !flag {
 		return false, &types.TimestampNormalError{}
 	}
-	// s.Logger.Info("我收到了区块 ", "address", b.Address, "height", b.Height, "time", v.lastTimestamp.GetTimestamp())
+	s.Logger.Info("我收到了区块 ", "address", p2p.ID(b.Address), "height", b.Height, "time", v.lastTimestamp.GetTimestamp())
 	// 输出，需要改timestamp到tx，或者把Tx结构定下来也可以
 	for _, tx := range b.PoHTimestamps {
 		memTx := &types.MemTx{
@@ -359,12 +359,12 @@ func (s *PoHTxState) GetNowTimestamp2() int64 {
 	defer s.mtx.Unlock()
 	now := s.mempool.GetNowTimestamp()
 	s.Logger.Info("正在取出时间 gen", "t", now)
-	for _, v := range s.PoHValidatorTimeMap {
+	for src, v := range s.PoHValidatorTimeMap {
 		t := v
 		if now > t {
 			now = t
 		}
-		s.Logger.Info("正在取出时间 v", "t", now)
+		s.Logger.Info("正在取出时间 v", "t", now, "address", src)
 	}
 	s.Logger.Info("正在取出时间 after v", "t", now)
 	t, ok := s.txDone.GetNowMin()
