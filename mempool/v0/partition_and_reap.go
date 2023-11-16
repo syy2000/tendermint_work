@@ -61,6 +61,12 @@ func (mem *CListMempool) ReapBlocks(n int) (int, []types.Txs) {
 	reap_size_cnt := 0
 	// TODO Choose exactly 1 block
 	n, outTxNodeSets, colors := mem.partitionResult.ReapBlocks(4)
+	for n < 4 && !mem.partitionResult.Empty() {
+		n1, n2, n3 := mem.partitionResult.ReapBlocks(4-n)
+		n += n1
+		outTxNodeSets = append(outTxNodeSets, n2)
+		colors = append(colors, n3)
+	}
 	chosen := rand.Intn(n)
 
 	if n == 0 {

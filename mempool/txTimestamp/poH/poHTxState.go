@@ -314,6 +314,7 @@ func (s *PoHTxState) handleBlockPart(src p2p.ID, p *types.PoHBlockPart) (bool, e
 
 // TODO 验证签名、细化错误、输出
 func (s *PoHTxState) handleBlock(src p2p.ID, b *types.PoHBlock) (bool, error) {
+	s.Logger.Info("我收到了区块并准备验证 ", "address", p2p.ID(b.Address), "height", b.Height, "time")
 	if src != p2p.ID(b.Address) {
 		return false, &types.ErrNotEnoughVotingPowerSigned{}
 	}
@@ -328,7 +329,7 @@ func (s *PoHTxState) handleBlock(src p2p.ID, b *types.PoHBlock) (bool, error) {
 	if !flag {
 		return false, &types.TimestampNormalError{}
 	}
-	s.Logger.Info("我收到了区块 ", "address", p2p.ID(b.Address), "height", b.Height, "time", v.lastTimestamp.GetTimestamp())
+	s.Logger.Info("我收到了区块并验证结束 ", "address", p2p.ID(b.Address), "height", b.Height, "time", v.lastTimestamp.GetTimestamp())
 	// 输出，需要改timestamp到tx，或者把Tx结构定下来也可以
 	for _, tx := range b.PoHTimestamps {
 		memTx := &types.MemTx{

@@ -160,7 +160,7 @@ func (gen *PoHGenerator) generate() {
 			gen.mtx.Unlock()
 			return
 		// default:
-		case <-time.After(5 * time.Microsecond):
+		case <-time.After(1 * time.Microsecond):
 			// 一秒触发20w次
 			gen.generateNextRoundAndOutput()
 		}
