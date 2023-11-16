@@ -152,6 +152,7 @@ func (gen *PoHGenerator) generateNextRoundAndOutput() {
 
 func (gen *PoHGenerator) generate() {
 	gen.Logger.Info("生成启动")
+	gen.Logger.Info("生成tick间隔", "IntervalRound", gen.IntervalRound)
 	for {
 		select {
 		case <-gen.quit:

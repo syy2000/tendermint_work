@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	TxNumOneBlock      = 5000
+	TxNumOneBlock      = 2500
 	TxTimestampChanMax = 1000000
 	CreateBlockChanMax = 100
 )
@@ -36,6 +36,7 @@ func NewPoHMempool(
 	m.Height = 0
 	m.Round = 0
 	m.Logger = logger
+	m.Logger.Info("poh区块包含的时间戳数量","num",TxNumOneBlock)
 	return m
 }
 
