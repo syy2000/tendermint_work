@@ -31,6 +31,7 @@ func main() {
 		cmd.VersionCmd,
 		cmd.RollbackStateCmd,
 		cmd.CompactGoLevelDBCmd,
+		cmd.InitLogFilesCmd,
 		debug.DebugCmd,
 		cli.NewCompletionCmd(rootCmd, true),
 	)
