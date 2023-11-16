@@ -917,7 +917,7 @@ func NewNode(config *cfg.Config,
 
 	txTimeStamepLogger := logger.With("module", "txTimeStamep")
 	poHMempool := poH.NewPoHMempool(txTimeStamepLogger)
-	poHGen := poH.NewPoHGenerator(1000, txTimeStamepLogger, poHMempool)
+	poHGen := poH.NewPoHGenerator(100, txTimeStamepLogger, poHMempool)
 	privKey := privValidator.(*privval.FilePV)
 	txState := poH.NewPoHTxState(poHMempool, poHGen, privKey.Key.PrivKey, privKey.Key.PubKey, privKey.GetAddress(), txTimeStamepLogger)
 	switch config.Mempool.Version {
