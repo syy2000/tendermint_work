@@ -11,7 +11,7 @@ require (
 	github.com/bufbuild/buf v1.6.0
 	github.com/cenkalti/backoff v2.2.1+incompatible // indirect
 	github.com/creachadair/atomicfile v0.2.6
-	github.com/creachadair/taskgroup v0.3.2
+	github.com/creachadair/taskgroup v0.6.2
 	github.com/creachadair/tomledit v0.0.23
 	github.com/facebookgo/ensure v0.0.0-20160127193407-b4ab57deab51 // indirect
 	github.com/facebookgo/stack v0.0.0-20160209184415-751773369052 // indirect
