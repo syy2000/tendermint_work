@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 4
     steps:
-      - uses: actions/checkout@v2.4.0
+      - uses: actions/checkout@v4.1.1
       - uses: bufbuild/buf-setup-action@v1.6.0
       - uses: bufbuild/buf-lint-action@v1
         with:
@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 4
     steps:
-      - uses: actions/checkout@v2.4.0
+      - uses: actions/checkout@v4.1.1
       - uses: bufbuild/buf-setup-action@v1.6.0
       - uses: bufbuild/buf-breaking-action@v1
         with:
