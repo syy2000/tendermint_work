@@ -2,6 +2,8 @@ package v0
 
 import (
 	"fmt"
+	"runtime"
+	"sync"
 	"time"
 )
 
@@ -136,23 +138,26 @@ func GenEdge(father, child *mempoolTx) {
 func (mem *CListMempool) ZeroOutDegreeMempoolTx() []*mempoolTx {
 	out := make([]*mempoolTx, 0)
 	for _, tx := range mem.workspace {
-		if len(tx.childTxs) == 0 {
+		if tx.outDegree == 0 {
 			out = append(out, tx)
 		}
 	}
 	return out
 }
-func (mem *CListMempool) ExecuteSequentially(accountMap map[string]int64) float64 {
+func (mem *CListMempool) ExecuteSequentially(accountMap sync.Map) float64 {
 	start := time.Now()
 	//record_time := start
 	for _,tx := range mem.workspace { 
 		for index,op := range tx.tx.TxOp {
 			s := tx.tx.TxObAndAttr
 			if op == "read" {
-				_ = accountMap[s[index]]
+				_,_ = accountMap.Load(s[index])
 				//fmt.Printf("%d", tmp)
 			} else if op == "write" {
-				accountMap[s[index]] += 100
+				cur, isFind := accountMap.Load(s[index])
+				if isFind {
+					accountMap.Store(s[index], cur.(int)+100)
+				}
 			}
 		}
 		//time_used_perTx := time.Since(record_time)
@@ -163,9 +168,65 @@ func (mem *CListMempool) ExecuteSequentially(accountMap map[string]int64) float6
 	fmt.Printf("%.2f\n", float64(time_used)/float64(time.Millisecond))
 	return float64(time_used)/float64(time.Millisecond)
 }
+func doTask(wg *sync.WaitGroup, tx *mempoolTx, accountMap sync.Map) {
+	
+	for index,op := range tx.tx.TxOp {
+		s := tx.tx.TxObAndAttr
+		if op == "read" {
+			_,_ = accountMap.Load(s[index])
+			//fmt.Printf("%d", tmp)
+		} else if op == "write" {
+			cur,isFind := accountMap.Load(s[index])
+			if isFind {
+				accountMap.Store(s[index], cur.(int)+100)
+			}
+		}
+	}
+	(*wg).Done()
+}
+func doTasks(x int, out []*mempoolTx, accountMap sync.Map) {
+	runtime.GOMAXPROCS(x)
+	var wg sync.WaitGroup
+	//start := time.Now().Unix()
+	for index, _ := range out {
+		wg.Add(1)
+		go doTask(&wg, out[index], accountMap)
+	}
+	wg.Wait()
+	//fmt.Println("cpu", x)
+	//fmt.Println((time.Now().UnixNano()-start)/1e9)
+}
+func (mem *CListMempool) ExecuteConcurrently(accountMap sync.Map) float64 {
+	//start := time.Now()
+	visit := len(mem.workspace)
+	var start time.Time
+	time_used := 0.00
+	var out []*mempoolTx
+	//拓扑+并发
+	for visit>0 {
+		out = mem.ZeroOutDegreeMempoolTx()
+		start = time.Now()
+		doTasks(8, out, accountMap)
+		time_used += float64(time.Since(start))
+		//子节点入度-1
+		for _,tx := range out {
+			childTxs := tx.childTxs
+			for _,child := range childTxs {
+				mem.workspace[child.ID()].outDegree -= 1
 
-func (mem *CListMempool) ExecuteConcurrently(accountMap map[string]int64) float64 {
-	start := time.Now()
-	out := mem.ZeroOutDegreeMempoolTx()
-	 
+			}
+		}
+		visit -= len(out)
+		//start = time.Now()
+	}
+	//out := mem.ZeroOutDegreeMempoolTx()
+	// for _, tx := range out {
+	// 	fmt.Println(len(tx.childTxs))
+	// }
+	//for i:=1 ; i<=8 ; i++ {
+	
+	//}
+	//time_used := time.Since(start)
+	//fmt.Printf("%.2f\n", float64(time_used)/float64(time.Millisecond))
+	return float64(time_used)/float64(time.Millisecond)
 }

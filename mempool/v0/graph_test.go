@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
+	"sync"
 	"testing"
 	"time"
 
@@ -17,7 +18,7 @@ const (
 	accountNum  = 10000
 	hot_rate    = 0.8
 	preBlockNum = 80
-	testTimes   = 30
+	testTimes   = 1
 )
 
 var (
@@ -30,7 +31,7 @@ var (
 	closeXlsxFunc   func()
 	newSheetHandler func(string)
 	xlsxSheetName   = "Test"
-	accountMap      map[string]int64
+	accountMap      sync.Map
 )
 
 func TestMain(t *testing.T) {
@@ -45,7 +46,10 @@ func TestMain(t *testing.T) {
 	writeXlsxFunc(8, 1, "weight")
 	//diploma design
 	//添加账户余额表，模拟执行，read为直接访问,write为修改值
-	accountMap = make(map[string]int64, accountNum)
+	//accountMap = make(map[string]int64, accountNum)
+	for i:=0; i<accountNum; i++ {
+		accountMap.Store(accountNum, 10000)
+	}
 	for i := 1; i <= 1  ; i++ {
 		total := step * i
 		fmt.Printf("========= Node Num : %d ==========\n", total)
@@ -53,7 +57,7 @@ func TestMain(t *testing.T) {
 		var (
 			time_used                                 time.Duration
 			edges, zero_outdegree, max_deps, mid_deps, count, totalWeight int
-			total_time float64
+			Sequential_total_time, Concurrent_total_time float64
 		)
 		for i := 0; i < testTimes; i++ {
 			mem := CListMempool{}
@@ -76,7 +80,9 @@ func TestMain(t *testing.T) {
 			mid_deps = mem.midDep() 
 			count = mem.countComponent()
 			totalWeight += int(mem.countWeight())
-			total_time += mem.ExecuteSequentially(accountMap)
+			Sequential_total_time += mem.ExecuteSequentially(accountMap)
+			//mem.ExecuteConcurrently(accountMap)
+			Concurrent_total_time += mem.ExecuteConcurrently(accountMap)
 		}
 		time_used /= time.Duration(testTimes)
 		writeXlsxFunc(2, i+1, fmt.Sprintf("%.2f", float64(time_used)/float64(time.Millisecond)))
@@ -86,7 +92,8 @@ func TestMain(t *testing.T) {
 		writeXlsxFunc(6, i+1, fmt.Sprint(mid_deps))
 		writeXlsxFunc(7, i+1, fmt.Sprint(count))
 		writeXlsxFunc(8, i+1, fmt.Sprint(totalWeight/testTimes))
-		fmt.Printf("Sequential Execute average time is %.2f", total_time/testTimes)
+		fmt.Println("Sequential Execute average time is", Sequential_total_time/testTimes)
+		fmt.Println("Concurrent Execute average time is", Concurrent_total_time/testTimes)
 	}
 }
 
