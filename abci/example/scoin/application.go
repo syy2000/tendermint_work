@@ -272,6 +272,7 @@ func (app *Application) Execute(tx []byte) (abcitypes.ResponseDeliverTx, bool) {
 		return abcitypes.ResponseDeliverTx{Code: codetype.CodeTypeBadNonce}, false
 	}
 	if insert.Flag == int8(1) {
+		fmt.Printf("%d\n", insert.Flag)
 		key := prefixKey([]byte(insert.Pubkey))
 		value := I2B(insert.Money)
 		out, err := app.dbcnn.Get(key)
@@ -285,7 +286,7 @@ func (app *Application) Execute(tx []byte) (abcitypes.ResponseDeliverTx, bool) {
 			return abcitypes.ResponseDeliverTx{Code: codetype.CodeTypeBadNonce}, false
 		}
 	} else if insert.Flag == int8(2) || insert.Flag == int8(3) {
-
+		fmt.Printf("%d\n", insert.Flag)
 		json.Unmarshal(UnFilt(tx), &buy)
 
 		numfrom, numto := len(buy.From), len(buy.To)

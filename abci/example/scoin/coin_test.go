@@ -17,9 +17,14 @@ func TestCreateCoin(t *testing.T) {
 	app := NewApplication("")
 	reqInsert := abcitypes.RequestCheckTx{Tx: txi.ToProto()}
 	reqBuy := abcitypes.RequestCheckTx{Tx: txb.ToProto()}
-
+	reqInsertDeliver := abcitypes.RequestDeliverTx{Tx: txi.ToProto()}
+	reqBuyDeliver := abcitypes.RequestDeliverTx{Tx: txb.ToProto()}
+	//fmt.Println(app.GetDB())
 	fmt.Println(RWAnalyse(txi))
 	fmt.Println(RWAnalyse(txb))
 	fmt.Println(app.CheckTx(reqInsert))
 	fmt.Println(app.CheckTx(reqBuy))
+	fmt.Println(app.DeliverTx(reqInsertDeliver))
+	fmt.Println(app.DeliverTx(reqBuyDeliver))
+	fmt.Println(app)
 }

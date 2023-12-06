@@ -1,6 +1,9 @@
 package v0
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
 
 var tmused time.Duration
 
@@ -36,7 +39,7 @@ func (mem *CListMempool) procTxDependency(memTx *mempoolTx) {
 		op := memTx.tx.TxOp[index] // 读/写操作
 		if op0, ok := seen[txObAndAttr]; ok {
 			if op0 == "read" && op == "write" {
-				seen[txObAndAttr] = op
+				seen[txObAndAttr] = op 
 			}
 		} else {
 			seen[txObAndAttr] = op
@@ -127,4 +130,42 @@ func (mem *CListMempool) procTxDependency(memTx *mempoolTx) {
 func GenEdge(father, child *mempoolTx) {
 	father.childTxs = append(father.childTxs, child)
 	child.parentTxs = append(child.parentTxs, father)
+}
+
+//diploma design
+func (mem *CListMempool) ZeroOutDegreeMempoolTx() []*mempoolTx {
+	out := make([]*mempoolTx, 0)
+	for _, tx := range mem.workspace {
+		if len(tx.childTxs) == 0 {
+			out = append(out, tx)
+		}
+	}
+	return out
+}
+func (mem *CListMempool) ExecuteSequentially(accountMap map[string]int64) float64 {
+	start := time.Now()
+	//record_time := start
+	for _,tx := range mem.workspace { 
+		for index,op := range tx.tx.TxOp {
+			s := tx.tx.TxObAndAttr
+			if op == "read" {
+				_ = accountMap[s[index]]
+				//fmt.Printf("%d", tmp)
+			} else if op == "write" {
+				accountMap[s[index]] += 100
+			}
+		}
+		//time_used_perTx := time.Since(record_time)
+		//record_time = time.Now()
+		//fmt.Printf("%.2f\n", float64(time_used_perTx)/float64(time.Millisecond))
+	}
+	time_used := time.Since(start)
+	fmt.Printf("%.2f\n", float64(time_used)/float64(time.Millisecond))
+	return float64(time_used)/float64(time.Millisecond)
+}
+
+func (mem *CListMempool) ExecuteConcurrently(accountMap map[string]int64) float64 {
+	start := time.Now()
+	out := mem.ZeroOutDegreeMempoolTx()
+	 
 }

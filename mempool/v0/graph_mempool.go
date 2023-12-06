@@ -111,3 +111,38 @@ func (mmp *CListMempool) midDep() int {
 	sort.Sort(toSort)
 	return toSort[toSort.Len()/2]
 }
+
+func (mmp *CListMempool) countComponent() int{
+	count := 0
+	visit := make(map[int64]bool)
+	for _, tx := range mmp.workspace {
+		if !visit[tx.ID()] {
+			count += 1
+			mmp.dfs(tx, visit)
+		}
+	}
+	return count
+}
+func (mmp *CListMempool) dfs(tx txp.TxNode, visit map[int64]bool){
+	for _,t := range mmp.QueryNodeChild(tx) {
+		if !visit[t.ID()]{
+			visit[t.ID()] = true
+			mmp.dfs(t, visit)
+		}
+	}
+	
+	for _,t := range mmp.QueryFather(tx) {
+		if !visit[t.ID()]{
+			visit[t.ID()] = true
+			mmp.dfs(t, visit)
+		}
+	}
+}
+
+func (mmp *CListMempool) countWeight() int64{
+	var weight int64
+	for _,tx := range mmp.workspace{
+		weight += tx.weight
+	}
+	return weight
+}
