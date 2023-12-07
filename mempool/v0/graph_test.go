@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -47,17 +48,17 @@ func TestMain(t *testing.T) {
 	//diploma design
 	//添加账户余额表，模拟执行，read为直接访问,write为修改值
 	//accountMap = make(map[string]int64, accountNum)
-	for i:=0; i<accountNum; i++ {
-		accountMap.Store(accountNum, 10000)
+	for i := 0; i < accountNum; i++ {
+		accountMap.Store(strconv.Itoa(i), 10000)
 	}
-	for i := 1; i <= 1  ; i++ {
+	for i := 1; i <= 1; i++ {
 		total := step * i
 		fmt.Printf("========= Node Num : %d ==========\n", total)
 		writeXlsxFunc(1, i+1, fmt.Sprint(total))
 		var (
-			time_used                                 time.Duration
+			time_used                                                     time.Duration
 			edges, zero_outdegree, max_deps, mid_deps, count, totalWeight int
-			Sequential_total_time, Concurrent_total_time float64
+			Sequential_total_time, Concurrent_total_time                  float64
 			//Concurrent_total_time float64
 		)
 		for i := 0; i < testTimes; i++ {
@@ -78,12 +79,14 @@ func TestMain(t *testing.T) {
 			edges += mem.edgeNum()
 			zero_outdegree = len(mem.FindZeroOutdegree()) - preBlockNum
 			max_deps = mem.maxDep()
-			mid_deps = mem.midDep() 
+			mid_deps = mem.midDep()
 			count = mem.countComponent()
 			totalWeight += int(mem.countWeight())
+
+			//mem.ExecuteConcurrently(accountMap)
 			Sequential_total_time += mem.ExecuteSequentially(accountMap)
-			mem.ExecuteConcurrently(accountMap)
 			Concurrent_total_time += mem.ExecuteConcurrently(accountMap)
+			//Sequential_total_time += mem.ExecuteSequentially(accountMap)
 		}
 		time_used /= time.Duration(testTimes)
 		writeXlsxFunc(2, i+1, fmt.Sprintf("%.2f", float64(time_used)/float64(time.Millisecond)))
@@ -130,9 +133,9 @@ func GenBlockTable() *statustable.BlockStatusMappingTable {
 	}
 	return out
 }
-func TestRandomKey(t *testing.T){
+func TestRandomKey(t *testing.T) {
 	keys := GenRandomKey()
-	for i:=0; i<len(keys); i++ {
+	for i := 0; i < len(keys); i++ {
 		fmt.Printf("%s", keys[i])
 	}
 }
@@ -208,4 +211,3 @@ func CreateOrOpen() func(int, int, string) error {
 		}
 	}
 }
-

@@ -41,7 +41,7 @@ func (mem *CListMempool) procTxDependency(memTx *mempoolTx) {
 		op := memTx.tx.TxOp[index] // 读/写操作
 		if op0, ok := seen[txObAndAttr]; ok {
 			if op0 == "read" && op == "write" {
-				seen[txObAndAttr] = op 
+				seen[txObAndAttr] = op
 			}
 		} else {
 			seen[txObAndAttr] = op
@@ -102,7 +102,7 @@ func (mem *CListMempool) procTxDependency(memTx *mempoolTx) {
 			// 	mem.txsConflictMap[txObAndAttr] = conflictMapValue // 存入事务依赖表
 			// 	blockDepMap[blockTx.ID()] = blockTx
 			// 	// 事务依赖表和区块映射表均没有此项，新增至事务依赖表
-			// } else 
+			// } else
 			if op == "read" {
 				conflictMapValue := &txsConflictMapValue{
 					RL: []*mempoolTx{memTx},
@@ -139,8 +139,8 @@ func GenEdge(father, child *mempoolTx) {
 	child.parentTxs = append(child.parentTxs, father)
 }
 
-//diploma design
-func (mem *CListMempool) ZeroOutDegreeMempoolTx(visit[40000] bool) []*mempoolTx {
+// diploma design
+func (mem *CListMempool) ZeroOutDegreeMempoolTx(visit [40000]bool) []*mempoolTx {
 	out := make([]*mempoolTx, 0)
 	for _, tx := range mem.workspace {
 		if tx.outDegree == 0 && !visit[tx.ID()] {
@@ -153,11 +153,11 @@ func (mem *CListMempool) ZeroOutDegreeMempoolTx(visit[40000] bool) []*mempoolTx 
 func (mem *CListMempool) ExecuteSequentially(accountMap sync.Map) float64 {
 	start := time.Now()
 	//record_time := start
-	for _,tx := range mem.workspace { 
-		for index,op := range tx.tx.TxOp {
+	for _, tx := range mem.workspace {
+		for index, op := range tx.tx.TxOp {
 			s := tx.tx.TxObAndAttr
 			if op == "read" {
-				_,_ = accountMap.Load(s[index])
+				_, _ = accountMap.Load(s[index])
 				//fmt.Printf("%d", tmp)
 			} else if op == "write" {
 				cur, isFind := accountMap.Load(s[index])
@@ -172,33 +172,34 @@ func (mem *CListMempool) ExecuteSequentially(accountMap sync.Map) float64 {
 	}
 	time_used := time.Since(start)
 	fmt.Printf("%.2f\n", float64(time_used)/float64(time.Millisecond))
-	return float64(time_used)/float64(time.Millisecond)
+	return float64(time_used) / float64(time.Millisecond)
 }
-func doTask(wg *sync.WaitGroup, tx *mempoolTx, accountMap sync.Map) {
-	
-	for index,op := range tx.tx.TxOp {
+func doTask(tx *mempoolTx, accountMap sync.Map) {
+	//wg *sync.WaitGroup,
+	for index, op := range tx.tx.TxOp {
 		s := tx.tx.TxObAndAttr
 		if op == "read" {
-			_,_ = accountMap.Load(s[index])
+			_, _ = accountMap.Load(s[index])
 			//fmt.Printf("%d", tmp)
 		} else if op == "write" {
-			cur,isFind := accountMap.Load(s[index])
+			cur, isFind := accountMap.Load(s[index])
 			if isFind {
 				accountMap.Store(s[index], cur.(int)+100)
 			}
 		}
 	}
-	(*wg).Done()
+	//(*wg).Done()
 }
 func doTasks(x int, out []*mempoolTx, accountMap sync.Map) {
 	runtime.GOMAXPROCS(x)
-	var wg sync.WaitGroup
+	//var wg sync.WaitGroup
 	//start := time.Now().Unix()
 	for index, _ := range out {
-		wg.Add(1)
-		go doTask(&wg, out[index], accountMap)
+		//wg.Add(1)
+		//go doTask(&wg, out[index], accountMap)
+		go doTask(out[index], accountMap)
 	}
-	wg.Wait()
+	//wg.Wait()
 	//fmt.Println("cpu", x)
 	//fmt.Println((time.Now().UnixNano()-start)/1e9)
 }
@@ -209,7 +210,7 @@ func (mem *CListMempool) ExecuteConcurrently(accountMap sync.Map) float64 {
 	var time_used float64
 	var out []*mempoolTx
 	var i int
-	var visit[40000] bool
+	var visit [40000]bool
 	//拓扑+并发
 	for txNum > 0 {
 		fmt.Println("The", i, "time")
@@ -217,12 +218,12 @@ func (mem *CListMempool) ExecuteConcurrently(accountMap sync.Map) float64 {
 		out = mem.ZeroOutDegreeMempoolTx(visit)
 		fmt.Println(len(out))
 		start = time.Now()
-		doTasks(8, out, accountMap)
+		doTasks(12, out, accountMap)
 		time_used += float64(time.Since(start))
-		//子节点入度-1 
-		for _,tx := range out {
+		//子节点入度-1
+		for _, tx := range out {
 			childTxs := tx.childTxs
-			for _,child := range childTxs {
+			for _, child := range childTxs {
 				mem.workspace[child.ID()].outDegree -= 1
 			}
 			visit[tx.ID()] = true
@@ -230,5 +231,5 @@ func (mem *CListMempool) ExecuteConcurrently(accountMap sync.Map) float64 {
 		txNum -= len(out)
 		//start = time.Now()
 	}
-	return float64(time_used)/float64(time.Millisecond)
+	return float64(time_used) / float64(time.Millisecond)
 }

@@ -28,7 +28,7 @@ func init() {
 func Fuzz(data types.Tx) int {
 	//func Fuzz(data []byte) int {
 	//Tx转MemTx
-	err := mempool.CheckTx(data, nil, mempl.TxInfo{})
+	err := mempool.CheckTx(data.OriginTx, nil, mempl.TxInfo{})
 	if err != nil {
 		return 0
 	}
