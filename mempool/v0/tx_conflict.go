@@ -80,39 +80,43 @@ func (mem *CListMempool) procTxDependency(memTx *mempoolTx) {
 						}
 					}
 				}
+				// 清空读集，以后的读/写都和此写冲突
 				conflictMapValue.RL = nil
 				conflictMapValue.WL = []*mempoolTx{memTx}
 			default:
 				panic("while generating txMap -- procTxDEpendency : this should not happen! op must be read/write")
 			}
 		} else { // 事务依赖表没有此项，查找区块状态映射表
-			if blockID, ok := mem.blockStatusMappingTable.Load(txObAndAttr); ok {
-				//区块状态映射表中的区块号作为前序依赖事务
-				blockTx, ok := mem.blockNodes[blockID]
-				if !ok {
-					blockTx = NewBlockMempoolTx(blockID)
-					mem.blockNodes[blockID] = blockTx
-					mem.blockNodeNum++
-				}
-				conflictMapValue := &txsConflictMapValue{
-					RL: nil,
-					WL: []*mempoolTx{blockTx},
-				}
-				mem.txsConflictMap[txObAndAttr] = conflictMapValue // 存入事务依赖表
-				blockDepMap[blockTx.ID()] = blockTx
-				// 事务依赖表和区块映射表均没有此项，新增至事务依赖表
-			} else if op == "read" {
+			// if blockID, ok := mem.blockStatusMappingTable.Load(txObAndAttr); ok {
+			// 	//区块状态映射表中的区块号作为前序依赖事务
+			// 	blockTx, ok := mem.blockNodes[blockID]
+			// 	if !ok {
+			// 		blockTx = NewBlockMempoolTx(blockID)
+			// 		mem.blockNodes[blockID] = blockTx
+			// 		mem.blockNodeNum++
+			// 	}
+			// 	conflictMapValue := &txsConflictMapValue{
+			// 		RL: nil,
+			// 		WL: []*mempoolTx{blockTx},
+			// 	}
+			// 	mem.txsConflictMap[txObAndAttr] = conflictMapValue // 存入事务依赖表
+			// 	blockDepMap[blockTx.ID()] = blockTx
+			// 	// 事务依赖表和区块映射表均没有此项，新增至事务依赖表
+			// } else 
+			if op == "read" {
 				conflictMapValue := &txsConflictMapValue{
 					RL: []*mempoolTx{memTx},
 					WL: nil,
 				}
 				mem.txsConflictMap[txObAndAttr] = conflictMapValue
+				//fmt.Println("first read")
 			} else if op == "write" {
 				conflictMapValue := &txsConflictMapValue{
-					RL: []*mempoolTx{memTx},
-					WL: nil,
+					RL: nil,
+					WL: []*mempoolTx{memTx},
 				}
 				mem.txsConflictMap[txObAndAttr] = conflictMapValue
+				//fmt.Println("first write")
 			} else {
 				panic("while generating txMap -- procTxDEpendency : this should not happen! op must be read/write")
 			}
@@ -123,6 +127,7 @@ func (mem *CListMempool) procTxDependency(memTx *mempoolTx) {
 	//生成结点的邻接关系
 	for _, father := range blockDepMap {
 		GenEdge(father, memTx)
+		//fmt.Println("hhh")
 	}
 	for _, father := range depMap {
 		GenEdge(father, memTx)
@@ -135,13 +140,14 @@ func GenEdge(father, child *mempoolTx) {
 }
 
 //diploma design
-func (mem *CListMempool) ZeroOutDegreeMempoolTx() []*mempoolTx {
+func (mem *CListMempool) ZeroOutDegreeMempoolTx(visit[40000] bool) []*mempoolTx {
 	out := make([]*mempoolTx, 0)
 	for _, tx := range mem.workspace {
-		if tx.outDegree == 0 {
+		if tx.outDegree == 0 && !visit[tx.ID()] {
 			out = append(out, tx)
 		}
 	}
+	fmt.Println(len(out))
 	return out
 }
 func (mem *CListMempool) ExecuteSequentially(accountMap sync.Map) float64 {
@@ -198,35 +204,31 @@ func doTasks(x int, out []*mempoolTx, accountMap sync.Map) {
 }
 func (mem *CListMempool) ExecuteConcurrently(accountMap sync.Map) float64 {
 	//start := time.Now()
-	visit := len(mem.workspace)
+	txNum := len(mem.workspace)
 	var start time.Time
-	time_used := 0.00
+	var time_used float64
 	var out []*mempoolTx
+	var i int
+	var visit[40000] bool
 	//拓扑+并发
-	for visit>0 {
-		out = mem.ZeroOutDegreeMempoolTx()
+	for txNum > 0 {
+		fmt.Println("The", i, "time")
+		i += 1
+		out = mem.ZeroOutDegreeMempoolTx(visit)
+		fmt.Println(len(out))
 		start = time.Now()
 		doTasks(8, out, accountMap)
 		time_used += float64(time.Since(start))
-		//子节点入度-1
+		//子节点入度-1 
 		for _,tx := range out {
 			childTxs := tx.childTxs
 			for _,child := range childTxs {
 				mem.workspace[child.ID()].outDegree -= 1
-
 			}
+			visit[tx.ID()] = true
 		}
-		visit -= len(out)
+		txNum -= len(out)
 		//start = time.Now()
 	}
-	//out := mem.ZeroOutDegreeMempoolTx()
-	// for _, tx := range out {
-	// 	fmt.Println(len(tx.childTxs))
-	// }
-	//for i:=1 ; i<=8 ; i++ {
-	
-	//}
-	//time_used := time.Since(start)
-	//fmt.Printf("%.2f\n", float64(time_used)/float64(time.Millisecond))
 	return float64(time_used)/float64(time.Millisecond)
 }

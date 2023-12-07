@@ -58,6 +58,7 @@ func TestMain(t *testing.T) {
 			time_used                                 time.Duration
 			edges, zero_outdegree, max_deps, mid_deps, count, totalWeight int
 			Sequential_total_time, Concurrent_total_time float64
+			//Concurrent_total_time float64
 		)
 		for i := 0; i < testTimes; i++ {
 			mem := CListMempool{}
@@ -81,7 +82,7 @@ func TestMain(t *testing.T) {
 			count = mem.countComponent()
 			totalWeight += int(mem.countWeight())
 			Sequential_total_time += mem.ExecuteSequentially(accountMap)
-			//mem.ExecuteConcurrently(accountMap)
+			mem.ExecuteConcurrently(accountMap)
 			Concurrent_total_time += mem.ExecuteConcurrently(accountMap)
 		}
 		time_used /= time.Duration(testTimes)
