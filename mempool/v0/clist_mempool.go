@@ -976,10 +976,10 @@ type mempoolTx struct {
 	childTxs  []txgpartition.TxNode
 	isBlock   bool
 	//diploma design
-	weight    int64   // 权重
+	weight int64 // 权重
 }
 
-func  NewBlockMempoolTx(id int64) *mempoolTx {
+func NewBlockMempoolTx(id int64) *mempoolTx {
 	return &mempoolTx{
 		isBlock: true,
 		tx: types.MemTx{
