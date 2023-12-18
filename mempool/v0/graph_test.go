@@ -56,10 +56,13 @@ func TestMain(t *testing.T) {
 		fmt.Printf("========= Node Num : %d ==========\n", total)
 		writeXlsxFunc(1, i+1, fmt.Sprint(total))
 		var (
-			time_used                                                     time.Duration
-			edges, zero_outdegree, max_deps, mid_deps, count, totalWeight int
-			Sequential_total_time, Concurrent_total_time                  float64
+			time_used                                              time.Duration
+			edges, zero_outdegree, max_deps, mid_deps, totalWeight int
+			Sequential_total_time, Concurrent_total_time           float64
 			//Concurrent_total_time float64
+			componentMap map[int64][]int64
+			weightMap    map[int64]int64
+			count        int64
 		)
 		for i := 0; i < testTimes; i++ {
 			mem := CListMempool{}
@@ -80,7 +83,7 @@ func TestMain(t *testing.T) {
 			zero_outdegree = len(mem.FindZeroOutdegree()) - preBlockNum
 			max_deps = mem.maxDep()
 			mid_deps = mem.midDep()
-			count = mem.countComponent()
+			componentMap, weightMap, count = mem.countComponent()
 			totalWeight += int(mem.countWeight())
 
 			//mem.ExecuteConcurrently(accountMap)
@@ -98,6 +101,10 @@ func TestMain(t *testing.T) {
 		writeXlsxFunc(8, i+1, fmt.Sprint(totalWeight/testTimes))
 		fmt.Println("Sequential Execute average time is", Sequential_total_time/testTimes)
 		fmt.Println("Concurrent Execute average time is", Concurrent_total_time/testTimes)
+		var cur int64
+		for cur = 1; cur <= count; cur++ {
+			fmt.Println("component:", len(componentMap[cur]), " weight:", weightMap[cur])
+		}
 	}
 }
 
@@ -110,14 +117,14 @@ func GenReadWrites(n int) []*mempoolTx {
 			TxOp:        []string{},
 			TxObAndAttr: []string{},
 		}
-		keys := GenRandomKey()
+		keys := GenRandomKey(i, n)
 		for j := 0; j < len(keys); j++ {
 			if j < len(keys)/2 {
 				memTx.TxOp = append(memTx.TxOp, "read")
-				weight += 1
+				weight += int64(rand.Intn(4) + 1)
 			} else {
 				memTx.TxOp = append(memTx.TxOp, "write")
-				weight += 2
+				weight += int64(rand.Intn(4) + 1)
 			}
 			memTx.TxObAndAttr = append(memTx.TxObAndAttr, keys[j])
 		}
@@ -134,15 +141,17 @@ func GenBlockTable() *statustable.BlockStatusMappingTable {
 	return out
 }
 func TestRandomKey(t *testing.T) {
-	keys := GenRandomKey()
+	keys := GenRandomKey(100, 40000)
 	for i := 0; i < len(keys); i++ {
 		fmt.Printf("%s", keys[i])
 	}
 }
-func GenRandomKey() []string {
+func GenRandomKey(i int, n int) []string {
 	outInt := []int{}
+	area := i / (n / 400)
 	for len(outInt) < keyNumPerTx {
-		x := rand.Intn(accountNum)
+		tmp := accountNum / 400
+		x := rand.Intn(tmp) + area*tmp
 		flg := false
 		for _, y := range outInt {
 			if x == y {
