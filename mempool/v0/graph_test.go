@@ -105,6 +105,7 @@ func TestMain(t *testing.T) {
 		for cur = 1; cur <= count; cur++ {
 			fmt.Println("component:", len(componentMap[cur]), " weight:", weightMap[cur])
 		}
+		fmt.Println(count)
 	}
 }
 
@@ -121,10 +122,10 @@ func GenReadWrites(n int) []*mempoolTx {
 		for j := 0; j < len(keys); j++ {
 			if j < len(keys)/2 {
 				memTx.TxOp = append(memTx.TxOp, "read")
-				weight += int64(rand.Intn(4) + 1)
+				weight += int64(rand.Intn(10) + i/10)
 			} else {
 				memTx.TxOp = append(memTx.TxOp, "write")
-				weight += int64(rand.Intn(4) + 1)
+				weight += int64((rand.Intn(10) + i/10) * 2)
 			}
 			memTx.TxObAndAttr = append(memTx.TxObAndAttr, keys[j])
 		}
@@ -148,9 +149,9 @@ func TestRandomKey(t *testing.T) {
 }
 func GenRandomKey(i int, n int) []string {
 	outInt := []int{}
-	area := i / (n / 400)
+	area := i / (n / 40)
 	for len(outInt) < keyNumPerTx {
-		tmp := accountNum / 400
+		tmp := accountNum / 40
 		x := rand.Intn(tmp) + area*tmp
 		flg := false
 		for _, y := range outInt {
