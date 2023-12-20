@@ -90,6 +90,13 @@ func TestMain(t *testing.T) {
 			Sequential_total_time += mem.ExecuteSequentially(accountMap)
 			Concurrent_total_time += mem.ExecuteConcurrently(accountMap)
 			//Sequential_total_time += mem.ExecuteSequentially(accountMap)
+			_, outNodeSets := mem.BalanceReapBlocks(componentMap, weightMap, 37)
+			for _, txs := range outNodeSets {
+				// for _,tx := range txs {
+				// 	//fmt.Printf("%s ", tx)
+				// }
+				fmt.Println(len(txs))
+			}
 		}
 		time_used /= time.Duration(testTimes)
 		writeXlsxFunc(2, i+1, fmt.Sprintf("%.2f", float64(time_used)/float64(time.Millisecond)))
@@ -105,11 +112,11 @@ func TestMain(t *testing.T) {
 		for cur = 1; cur <= count; cur++ {
 			fmt.Println("component:", len(componentMap[cur]), " weight:", weightMap[cur])
 		}
-		fmt.Println(count)
 	}
 }
 
 func GenReadWrites(n int) []*mempoolTx {
+	//s := "hello"
 	out := make([]*mempoolTx, n)
 	for i := 0; i < n; i++ {
 		var weight int64
@@ -117,6 +124,7 @@ func GenReadWrites(n int) []*mempoolTx {
 			TxId:        int64(i),
 			TxOp:        []string{},
 			TxObAndAttr: []string{},
+			OriginTx: types.Tx{OriginTx: []byte{'l','i','c','e'}},
 		}
 		keys := GenRandomKey(i, n)
 		for j := 0; j < len(keys); j++ {
