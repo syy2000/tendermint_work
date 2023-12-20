@@ -254,7 +254,7 @@ func (app *Application) ApplySnapshotChunk(abcitypes.RequestApplySnapshotChunk) 
 }
 
 // --------------execute-----------------------
-func (app *Application) Execute(tx []byte) (abcitypes.ResponseDeliverTx, bool) {
+func (app *Application)  Execute(tx []byte) (abcitypes.ResponseDeliverTx, bool) {
 	if isValidatorTx(tx) {
 		// update validators in the merkle tree
 		// and in app.ValUpdates

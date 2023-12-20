@@ -218,7 +218,7 @@ func (mem *CListMempool) ExecuteConcurrently(accountMap sync.Map) float64 {
 		out = mem.ZeroOutDegreeMempoolTx(visit)
 		//fmt.Println(len(out))
 		start = time.Now()
-		doTasks(12, out, accountMap)
+		doTasks(8, out, accountMap)
 		time_used += float64(time.Since(start))
 		//子节点入度-1
 		for _, tx := range out {
