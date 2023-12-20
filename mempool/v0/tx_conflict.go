@@ -147,7 +147,7 @@ func (mem *CListMempool) ZeroOutDegreeMempoolTx(visit [40000]bool) []*mempoolTx 
 			out = append(out, tx)
 		}
 	}
-	fmt.Println(len(out))
+	//fmt.Println(len(out))
 	return out
 }
 func (mem *CListMempool) ExecuteSequentially(accountMap sync.Map) float64 {
@@ -216,9 +216,9 @@ func (mem *CListMempool) ExecuteConcurrently(accountMap sync.Map) float64 {
 		fmt.Println("The", i, "time")
 		i += 1
 		out = mem.ZeroOutDegreeMempoolTx(visit)
-		fmt.Println(len(out))
+		//fmt.Println(len(out))
 		start = time.Now()
-		doTasks(12, out, accountMap)
+		doTasks(8, out, accountMap)
 		time_used += float64(time.Since(start))
 		//子节点入度-1
 		for _, tx := range out {

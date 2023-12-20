@@ -91,6 +91,7 @@ func (blockExec *BlockExecutor) SetEventBus(eventBus types.BlockEventPublisher) 
 // and txs from the mempool. The max bytes must be big enough to fit the commit.
 // Up to 1/10th of the block space is allcoated for maximum sized evidence.
 // The rest is given to txs, up to the max gas.
+//**********diploma design********************
 func (blockExec *BlockExecutor) CreateProposalBlock(
 	height int64,
 	state State, commit *types.Commit,
@@ -108,6 +109,8 @@ func (blockExec *BlockExecutor) CreateProposalBlock(
 	*/
 	evidence, _ := blockExec.evpool.PendingEvidence(state.ConsensusParams.Evidence.MaxBytes)
 	// TODO : This is only version 1
+	//*****diploma design********
+	//_, txsSet := blockExec.mempool.ReapBlocks(1)
 	_, txsSet := blockExec.mempool.ReapBlocks(1)
 	txs := txsSet[0]
 	//txs := blockExec.mempool.ReapMaxBytesMaxGas(maxDataBytes, maxGas)
