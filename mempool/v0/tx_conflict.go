@@ -1,7 +1,7 @@
 package v0
 
 import (
-	"fmt"
+	//"fmt"
 	"runtime"
 	"sync"
 	"time"
@@ -171,7 +171,7 @@ func (mem *CListMempool) ExecuteSequentially(accountMap sync.Map) float64 {
 		//fmt.Printf("%.2f\n", float64(time_used_perTx)/float64(time.Millisecond))
 	}
 	time_used := time.Since(start)
-	fmt.Printf("%.2f\n", float64(time_used)/float64(time.Millisecond))
+	//fmt.Printf("%.2f\n", float64(time_used)/float64(time.Millisecond))
 	return float64(time_used) / float64(time.Millisecond)
 }
 func doTask(tx *mempoolTx, accountMap sync.Map) {
@@ -213,7 +213,7 @@ func (mem *CListMempool) ExecuteConcurrently(accountMap sync.Map) float64 {
 	var visit [40000]bool
 	//拓扑+并发
 	for txNum > 0 {
-		fmt.Println("The", i, "time")
+		//fmt.Println("The", i, "time")
 		i += 1
 		out = mem.ZeroOutDegreeMempoolTx(visit)
 		//fmt.Println(len(out))

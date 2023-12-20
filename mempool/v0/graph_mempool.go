@@ -112,36 +112,50 @@ func (mmp *CListMempool) midDep() int {
 	return toSort[toSort.Len()/2]
 }
 
-func (mmp *CListMempool) countComponent() int{
-	count := 0
+func (mmp *CListMempool) countComponent() (map[int64][]int64, map[int64]int64, int64) {
+	var count int64
+	count = 0
 	visit := make(map[int64]bool)
+	componentMap := make(map[int64][]int64)
+	weightMap := make(map[int64]int64)
 	for _, tx := range mmp.workspace {
-		if !visit[tx.ID()] {
+		if !visit[tx.ID()] { // 开启一个新的连通分量
+			visit[tx.ID()] = true
+			component := []int64{}
+			component = append(component, tx.ID())
+			var weight int64
+			weight = mmp.workspace[tx.ID()].weight
 			count += 1
-			mmp.dfs(tx, visit)
+			component, weight = mmp.dfs(tx, visit, component, weight)
+			componentMap[count] = component
+			weightMap[count] = weight
 		}
 	}
-	return count
+	return componentMap, weightMap, count
 }
-func (mmp *CListMempool) dfs(tx txp.TxNode, visit map[int64]bool){
-	for _,t := range mmp.QueryNodeChild(tx) {
-		if !visit[t.ID()]{
+func (mmp *CListMempool) dfs(tx txp.TxNode, visit map[int64]bool, component []int64, weight int64) ([]int64, int64) {
+	for _, t := range mmp.QueryNodeChild(tx) {
+		if !visit[t.ID()] {
 			visit[t.ID()] = true
-			mmp.dfs(t, visit)
+			component = append(component, t.ID())
+			weight += mmp.workspace[t.ID()].weight
+			component, weight = mmp.dfs(t, visit, component, weight)
 		}
 	}
-	
-	for _,t := range mmp.QueryFather(tx) {
-		if !visit[t.ID()]{
+	for _, t := range mmp.QueryFather(tx) {
+		if !visit[t.ID()] {
 			visit[t.ID()] = true
-			mmp.dfs(t, visit)
+			component = append(component, t.ID())
+			weight += mmp.workspace[t.ID()].weight
+			component, weight = mmp.dfs(t, visit, component, weight)
 		}
 	}
+	return component, weight
 }
 
-func (mmp *CListMempool) countWeight() int64{
+func (mmp *CListMempool) countWeight() int64 {
 	var weight int64
-	for _,tx := range mmp.workspace{
+	for _, tx := range mmp.workspace {
 		weight += tx.weight
 	}
 	return weight
