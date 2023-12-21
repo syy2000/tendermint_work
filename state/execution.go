@@ -111,7 +111,9 @@ func (blockExec *BlockExecutor) CreateProposalBlock(
 	// TODO : This is only version 1
 	//*****diploma design********
 	//_, txsSet := blockExec.mempool.ReapBlocks(1)
-	_, txsSet := blockExec.mempool.ReapBlocks(1)
+	//_, txsSet := blockExec.mempool.ReapBlocks(1)
+	componentMap, weightMap, count = blockExec.mempool.countComponent()
+	_, txsSet := blockExec.mempool.BalanceReapBlocks(componentMap, weightMap, 8)
 	txs := txsSet[0]
 	//txs := blockExec.mempool.ReapMaxBytesMaxGas(maxDataBytes, maxGas)
 

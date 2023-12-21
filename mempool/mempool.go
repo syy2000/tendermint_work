@@ -8,6 +8,7 @@ import (
 
 	abci "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/types"
+	//txp "github.com/tendermint/tendermint/txgpartition"
 )
 
 const (
@@ -52,6 +53,10 @@ type Mempool interface {
 	// transactions (~ all available transactions).
 	// ReapMaxBytesMaxGas(maxBytes, maxGas int64) types.Txs
 	ReapBlocks(n int) (int, []types.Txs)
+	BalanceReapBlocks(map[int64][]int64, map[int64]int64, int64) (int64, []types.Txs)
+	countComponent() (map[int64][]int64, map[int64]int64, int64)
+	//dfs(txp.TxNode, map[int64]bool, []int64, int64)([]int64, int64)
+
 
 	// ReapMaxTxs reaps up to max transactions from the mempool. If max is
 	// negative, there is no cap on the size of all returned transactions

@@ -23,6 +23,7 @@ import (
 
 	"github.com/tendermint/tendermint/txgpartition"
 	"github.com/tendermint/tendermint/txgpartition/statustable"
+	//txp "github.com/tendermint/tendermint/txgpartition"
 )
 
 // CListMempool is an ordered in-memory pool for transactions before they are

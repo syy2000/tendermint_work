@@ -1,6 +1,7 @@
 package consensus
 
 import (
+	"github.com/gogo/protobuf/test/int64support"
 	abci "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/libs/clist"
 	mempl "github.com/tendermint/tendermint/mempool"
@@ -52,6 +53,8 @@ func (emptyMempool) TxsWaitChan() <-chan struct{} { return nil }
 func (emptyMempool) InitWAL() error                      { return nil }
 func (emptyMempool) CloseWAL()                           {}
 func (emptyMempool) ReapBlocks(n int) (int, []types.Txs) { return 0, []types.Txs{} }
+func (emptyMempool) BalanceReapBlocks(map[int64][]int64, map[int64]int64, int64)(int64, []types.Txs){return 0, []types.Txs{}}
+func (emptyMempool) countComponent()(map[int64][]int64, map[int64]int64, int64){return map[int64][]int64{}, map[int64]int64{}, 0}
 
 //-----------------------------------------------------------------------------
 // mockProxyApp uses ABCIResponses to give the right results.

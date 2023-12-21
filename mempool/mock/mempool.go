@@ -42,3 +42,5 @@ func (Mempool) TxsWaitChan() <-chan struct{} { return nil }
 func (Mempool) InitWAL() error                      { return nil }
 func (Mempool) CloseWAL()                           {}
 func (Mempool) ReapBlocks(_ int) (int, []types.Txs) { return 0, []types.Txs{} }
+func (Mempool) BalanceReapBlocks(map[int64][]int64, map[int64]int64, int64)(int64, []types.Txs){return 0, []types.Txs{}}
+func (Mempool) countComponent()(map[int64][]int64, map[int64]int64, int64){return map[int64][]int64{}, map[int64]int64{}, 0}

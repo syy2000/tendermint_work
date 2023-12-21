@@ -1,24 +1,16 @@
 package v0
 
-<<<<<<< HEAD
 import (
-	// "fmt"
+	"fmt"
 	// "math"
 	// "math/rand"
 	// "time"
 
-	// "github.com/tendermint/tendermint/txgpartition"
-	// "github.com/tendermint/tendermint/types"
-)
-
-func ReapBlocks(componentMap map[int64][]int64, weightMap map[int64]int64, count int64) {
-
-=======
-import(
-	"fmt"
-
+	txp "github.com/tendermint/tendermint/txgpartition"
 	"github.com/tendermint/tendermint/types"
 )
+
+
 
 func(mem *CListMempool) BalanceReapBlocks(componentMap map[int64][]int64, weightMap map[int64]int64, n int64) (int64, []types.Txs){
 	if len(componentMap) == 0 || len(weightMap) == 0 {
@@ -43,5 +35,55 @@ func(mem *CListMempool) BalanceReapBlocks(componentMap map[int64][]int64, weight
 		
 	}
 	return n, out
->>>>>>> 002db0e963a7de55957f6893be7d84b708513699
+
+}
+
+//diploma design
+func (mmp *CListMempool) countComponent() (map[int64][]int64, map[int64]int64, int64) {
+	var count int64
+	count = 0
+	visit := make(map[int64]bool)
+	componentMap := make(map[int64][]int64)
+	weightMap := make(map[int64]int64)
+	for _, tx := range mmp.workspace {
+		if !visit[tx.ID()] { // 开启一个新的连通分量
+			visit[tx.ID()] = true
+			component := []int64{}
+			component = append(component, tx.ID())
+			var weight int64
+			weight = mmp.workspace[tx.ID()].weight
+			count += 1
+			component, weight = mmp.dfs(tx, visit, component, weight)
+			componentMap[count] = component
+			weightMap[count] = weight
+		}
+	}
+	return componentMap, weightMap, count
+}
+func (mmp *CListMempool) dfs(tx txp.TxNode, visit map[int64]bool, component []int64, weight int64) ([]int64, int64) {
+	for _, t := range mmp.QueryNodeChild(tx) {
+		if !visit[t.ID()] {
+			visit[t.ID()] = true
+			component = append(component, t.ID())
+			weight += mmp.workspace[t.ID()].weight
+			component, weight = mmp.dfs(t, visit, component, weight)
+		}
+	}
+	for _, t := range mmp.QueryFather(tx) {
+		if !visit[t.ID()] {
+			visit[t.ID()] = true
+			component = append(component, t.ID())
+			weight += mmp.workspace[t.ID()].weight
+			component, weight = mmp.dfs(t, visit, component, weight)
+		}
+	}
+	return component, weight
+}
+
+func (mmp *CListMempool) countWeight() int64 {
+	var weight int64
+	for _, tx := range mmp.workspace {
+		weight += tx.weight
+	}
+	return weight
 }
