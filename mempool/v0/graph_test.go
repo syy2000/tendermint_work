@@ -83,7 +83,7 @@ func TestMain(t *testing.T) {
 			zero_outdegree = len(mem.FindZeroOutdegree()) - preBlockNum
 			max_deps = mem.maxDep()
 			mid_deps = mem.midDep()
-			componentMap, weightMap, count = mem.countComponent()
+			componentMap, weightMap, count = mem.CountComponent()
 			totalWeight += int(mem.countWeight())
 
 			//mem.ExecuteConcurrently(accountMap)
@@ -108,10 +108,11 @@ func TestMain(t *testing.T) {
 		writeXlsxFunc(8, i+1, fmt.Sprint(totalWeight/testTimes))
 		fmt.Println("Sequential Execute average time is", Sequential_total_time/testTimes)
 		fmt.Println("Concurrent Execute average time is", Concurrent_total_time/testTimes)
-		var cur int64
-		for cur = 1; cur <= count; cur++ {
-			fmt.Println("component:", len(componentMap[cur]), " weight:", weightMap[cur])
-		}
+		//var cur int64
+		// for cur = 1; cur <= count; cur++ {
+		// 	fmt.Println("component:", len(componentMap[cur]), " weight:", weightMap[cur])
+		// }
+		fmt.Println(count)
 	}
 }
 
@@ -124,7 +125,7 @@ func GenReadWrites(n int) []*mempoolTx {
 			TxId:        int64(i),
 			TxOp:        []string{},
 			TxObAndAttr: []string{},
-			OriginTx: types.Tx{OriginTx: []byte{'l','i','c','e'}},
+			OriginTx:    types.Tx{OriginTx: []byte{'l', 'i', 'c', 'e'}},
 		}
 		keys := GenRandomKey(i, n)
 		for j := 0; j < len(keys); j++ {
@@ -133,7 +134,7 @@ func GenReadWrites(n int) []*mempoolTx {
 				weight += int64(rand.Intn(10) + i/10)
 			} else {
 				memTx.TxOp = append(memTx.TxOp, "write")
-				weight += int64((rand.Intn(10) + i/10) * 2)
+				weight += int64(rand.Intn(10) + (n-i)/10)
 			}
 			memTx.TxObAndAttr = append(memTx.TxObAndAttr, keys[j])
 		}
