@@ -958,6 +958,15 @@ func (mem *CListMempool) updateTime(t int64) bool {
 	return mem.lastTime > t
 }
 
+// 给mempool中的mempoolTx计算权重
+func (mem *CListMempool) CalculateWeight() {
+	for _, tx := range mem.workspace {
+		memTxOp := tx.tx.TxOp
+		memTxObAndAttr := tx.tx.TxObAndAttr
+		//tx.weight = TestExecuteTime(memTxOp, memTxObAndAttr)
+	}
+}
+
 //--------------------------------------------------------------------------------
 
 // mempoolTx is a transaction that successfully ran

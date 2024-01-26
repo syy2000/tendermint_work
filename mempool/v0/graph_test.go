@@ -78,25 +78,27 @@ func TestMain(t *testing.T) {
 			fmt.Printf("start round %d\n", i)
 			start := time.Now()
 			mem.ProcWorkspaceDependency()
+			mem.CalculateWeight() // 给mempool的workspace中所有mempoolTx加权
 			time_used += time.Since(start)
 			edges += mem.edgeNum()
 			zero_outdegree = len(mem.FindZeroOutdegree()) - preBlockNum
 			max_deps = mem.maxDep()
 			mid_deps = mem.midDep()
-			componentMap, weightMap, count = mem.CountComponent()
+			componentMap, weightMap, count = mem.CountComponent() //数数mempool里面几个连通分量
 			totalWeight += int(mem.countWeight())
-
+			//fmt.Println(count)
 			//mem.ExecuteConcurrently(accountMap)
 			Sequential_total_time += mem.ExecuteSequentially(accountMap)
 			Concurrent_total_time += mem.ExecuteConcurrently(accountMap)
 			//Sequential_total_time += mem.ExecuteSequentially(accountMap)
-			_, outNodeSets := mem.BalanceReapBlocks(componentMap, weightMap, 37)
+			_, outNodeSets := mem.BalanceReapBlocks(componentMap, weightMap, 20)
 			for _, txs := range outNodeSets {
-				// for _,tx := range txs {
-				// 	//fmt.Printf("%s ", tx)
+				// for _, tx := range txs {
+				// 	fmt.Printf("%s ", tx)
 				// }
 				fmt.Println(len(txs))
 			}
+			fmt.Println(len(outNodeSets))
 		}
 		time_used /= time.Duration(testTimes)
 		writeXlsxFunc(2, i+1, fmt.Sprintf("%.2f", float64(time_used)/float64(time.Millisecond)))
@@ -112,7 +114,7 @@ func TestMain(t *testing.T) {
 		// for cur = 1; cur <= count; cur++ {
 		// 	fmt.Println("component:", len(componentMap[cur]), " weight:", weightMap[cur])
 		// }
-		fmt.Println(count)
+		//fmt.Println(count)
 	}
 }
 
@@ -125,16 +127,18 @@ func GenReadWrites(n int) []*mempoolTx {
 			TxId:        int64(i),
 			TxOp:        []string{},
 			TxObAndAttr: []string{},
-			OriginTx:    types.Tx{OriginTx: []byte{'l', 'i', 'c', 'e'}},
+			// Origin Tx
+			OriginTx: types.Tx{OriginTx: []byte{'h', 'e', 'l', 'l', 'o'}},
 		}
 		keys := GenRandomKey(i, n)
 		for j := 0; j < len(keys); j++ {
-			if j < len(keys)/2 {
+			randNum := rand.Intn(2)
+			if randNum == 0 {
 				memTx.TxOp = append(memTx.TxOp, "read")
-				weight += int64(rand.Intn(10) + i/10)
+				//weight += int64(rand.Intn(100))
 			} else {
 				memTx.TxOp = append(memTx.TxOp, "write")
-				weight += int64(rand.Intn(10) + (n-i)/10)
+				//weight += int64(rand.Intn(100) + (n-i)/10)
 			}
 			memTx.TxObAndAttr = append(memTx.TxObAndAttr, keys[j])
 		}
@@ -153,19 +157,17 @@ func GenBlockTable() *statustable.BlockStatusMappingTable {
 func TestRandomKey(t *testing.T) {
 	keys := GenRandomKey(100, 40000)
 	for i := 0; i < len(keys); i++ {
-		fmt.Printf("%s", keys[i])
+		fmt.Printf("%s  ", keys[i])
 	}
 }
 func GenRandomKey(i int, n int) []string {
 	outInt := []int{}
-	area := i / (n / 40)
 	for len(outInt) < keyNumPerTx {
-		tmp := accountNum / 40
-		x := rand.Intn(tmp) + area*tmp
+		x := rand.Intn(n)
 		flg := false
 		for _, y := range outInt {
 			if x == y {
-				flg = true
+				flg = true // 每个mempoolTx最多访问特定txObAndAttr一次
 			}
 		}
 		if flg {
@@ -177,7 +179,7 @@ func GenRandomKey(i int, n int) []string {
 
 	out := make([]string, len(outInt))
 	for i, x := range outInt {
-		out[i] = fmt.Sprint(x)
+		out[i] = strconv.Itoa(x)
 	}
 	return out
 }

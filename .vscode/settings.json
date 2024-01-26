@@ -4,6 +4,7 @@
       "--proto_path=${workspaceRoot}/proto",
       "--proto_path=${workspaceRoot}/third_party/proto"
     ]
-  }
+  },
+  "go.testTimeout": "3000s"
   
 }
