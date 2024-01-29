@@ -13,7 +13,7 @@ jobs:
     timeout-minutes: 4
     steps:
       - uses: actions/checkout@v2.4.0
-      - uses: bufbuild/buf-setup-action@v1.6.0
+      - uses: bufbuild/buf-setup-action@v1.29.0
       - uses: bufbuild/buf-lint-action@v1
         with:
           input: 'proto'
@@ -23,7 +23,7 @@ jobs:
     timeout-minutes: 4
     steps:
       - uses: actions/checkout@v2.4.0
-      - uses: bufbuild/buf-setup-action@v1.6.0
+      - uses: bufbuild/buf-setup-action@v1.29.0
       - uses: bufbuild/buf-breaking-action@v1
         with:
           against: 'https://github.com/tendermint/tendermint.git#branch=v0.35.x'
