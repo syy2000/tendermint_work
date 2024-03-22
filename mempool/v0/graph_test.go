@@ -23,7 +23,7 @@ const (
 )
 
 var (
-	step = 40000
+	step = 4
 )
 
 var (
@@ -52,7 +52,7 @@ func TestMain(t *testing.T) {
 		accountMap.Store(strconv.Itoa(i), 10000)
 	}
 	for i := 1; i <= 1; i++ {
-		total := step * i
+		total := step * i * 100
 		fmt.Printf("========= Node Num : %d ==========\n", total)
 		writeXlsxFunc(1, i+1, fmt.Sprint(total))
 		var (
@@ -60,9 +60,9 @@ func TestMain(t *testing.T) {
 			edges, zero_outdegree, max_deps, mid_deps, totalWeight int
 			Sequential_total_time, Concurrent_total_time           float64
 			//Concurrent_total_time float64
-			componentMap map[int64][]int64
-			weightMap    map[int64]int64
-			count        int64
+			//componentMap map[int64][]int64
+			//weightMap    map[int64]int64
+			count int64
 		)
 		for i := 0; i < testTimes; i++ {
 			mem := CListMempool{}
@@ -84,21 +84,31 @@ func TestMain(t *testing.T) {
 			zero_outdegree = len(mem.FindZeroOutdegree()) - preBlockNum
 			max_deps = mem.maxDep()
 			mid_deps = mem.midDep()
-			componentMap, weightMap, count = mem.CountComponent() //数数mempool里面几个连通分量
-			totalWeight += int(mem.countWeight())
+			// for _, tx := range mem.workspace {
+			// 	fmt.Println(tx.weight)
+			// }
+			n := 5
+			count = mem.CountComponent() //数数mempool里面几个连通分量
+			totalWeight := mem.countWeight()
+			componentMap, weightMap := mem.DivideGraph(totalWeight, int64(n))
+			fmt.Println(totalWeight)
+			for i := 0; i < 5; i++ {
+				fmt.Println(len(componentMap[int64(i)]))
+				fmt.Println(weightMap[int64(i)])
+			}
 			//fmt.Println(count)
 			//mem.ExecuteConcurrently(accountMap)
 			Sequential_total_time += mem.ExecuteSequentially(accountMap)
 			Concurrent_total_time += mem.ExecuteConcurrently(accountMap)
 			//Sequential_total_time += mem.ExecuteSequentially(accountMap)
-			_, outNodeSets := mem.BalanceReapBlocks(componentMap, weightMap, 20)
-			for _, txs := range outNodeSets {
-				// for _, tx := range txs {
-				// 	fmt.Printf("%s ", tx)
-				// }
-				fmt.Println(len(txs))
-			}
-			fmt.Println(len(outNodeSets))
+			//_, outNodeSets := mem.BalanceReapBlocks(componentMap, weightMap, 20)
+			// for _, txs := range outNodeSets {
+			// 	// for _, tx := range txs {
+			// 	// 	fmt.Printf("%s ", tx)
+			// 	// }
+			// 	fmt.Println(len(txs))
+			// }
+			// fmt.Println(len(outNodeSets))
 		}
 		time_used /= time.Duration(testTimes)
 		writeXlsxFunc(2, i+1, fmt.Sprintf("%.2f", float64(time_used)/float64(time.Millisecond)))

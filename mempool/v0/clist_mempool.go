@@ -1,9 +1,19 @@
 package v0
 
 import (
+	"bufio"
 	"bytes"
 	"container/heap"
 	"errors"
+	"fmt"
+	"os"
+	"strconv"
+	"strings"
+
+	"math"
+	"os/exec"
+	"sort"
+
 	"sync"
 	"sync/atomic"
 	"time"
@@ -19,11 +29,11 @@ import (
 	"github.com/tendermint/tendermint/mempool/txTimestamp/poH"
 	"github.com/tendermint/tendermint/p2p"
 	"github.com/tendermint/tendermint/proxy"
+	"github.com/tendermint/tendermint/txgpartition"
 	"github.com/tendermint/tendermint/types"
 
-	"github.com/tendermint/tendermint/txgpartition"
+	txp "github.com/tendermint/tendermint/txgpartition"
 	"github.com/tendermint/tendermint/txgpartition/statustable"
-	//txp "github.com/tendermint/tendermint/txgpartition"
 )
 
 // CListMempool is an ordered in-memory pool for transactions before they are
@@ -110,6 +120,7 @@ type CListMempool struct {
 }
 
 var _ mempool.Mempool = &CListMempool{}
+var hotspot_data = []string{"20", "100", "120", "200", "400"}
 
 // CListMempoolOption sets an optional parameter on the mempool.
 type CListMempoolOption func(*CListMempool)
@@ -957,14 +968,213 @@ func (mem *CListMempool) updateTime(t int64) bool {
 	}
 	return mem.lastTime > t
 }
+func in(target string, str_array []string) bool {
+	// 二分查找一个字符串是否在一个字符串数组里
+	sort.Strings(str_array)
+	index := sort.SearchStrings(str_array, target)
+	if index < len(str_array) && str_array[index] == target {
+		return true
+	}
+	return false
+}
 
 // 给mempool中的mempoolTx计算权重
 func (mem *CListMempool) CalculateWeight() {
+	var lines []string = []string{}
+	ops := len(mem.workspace)
+	read_ops := 0
+	repeat_ops := 0
 	for _, tx := range mem.workspace {
 		memTxOp := tx.tx.TxOp
 		memTxObAndAttr := tx.tx.TxObAndAttr
 		//tx.weight = TestExecuteTime(memTxOp, memTxObAndAttr)
+		for i := 0; i < 1; i++ {
+			if memTxOp[i] == "read" {
+				read_ops += 1
+			}
+			if in(memTxObAndAttr[i], hotspot_data) {
+				repeat_ops += 1
+			}
+		}
+		read_rate := math.Round(float64(read_ops)/float64(ops)*10) / 10
+		repeat_rate := math.Round(float64(repeat_ops)/float64(ops)*10) / 10
+
+		inputData := strconv.Itoa(ops) + " " + strconv.FormatFloat(read_rate, 'f', 6, 64) + " " + strconv.FormatFloat(repeat_rate, 'f', 6, 64)
+		lines = append(lines, inputData)
+
 	}
+	multiLines := ""
+	for _, line := range lines {
+		multiLines = multiLines + line + "\n"
+	}
+	// Python脚本路径
+	pythonScript := "D:\\GitHubProject\\tendermint_work\\mempool\\v0\\script.py"
+	modelFilePath := "D:\\GitHubProject\\tendermint_work\\mempool\\v0\\neural_net_regression.pkl"
+	// 构造执行Python命令的参数
+	//cmd := exec.Command("D:\\GitHubProject\\tendermint_work\\mempool\\v0\\run_python.bat", pythonScript, modelFilePath)
+	cmd := exec.Command("D:\\Anaconda3\\envs\\myenv\\python.exe", pythonScript, modelFilePath)
+	//cmd.Args = append(cmd.Args, modelFilePath)
+	stdin := strings.NewReader(multiLines)
+	// // 设置命令的stdin
+	cmd.Stdin = stdin
+	// 获取命令的stdout
+	var stdoutBuf bytes.Buffer
+	var stderr bytes.Buffer
+	cmd.Stdout = &stdoutBuf
+	cmd.Stderr = &stderr
+	// 执行命令
+	//output, err := cmd.CombinedOutput()
+	err := cmd.Run()
+	if err != nil {
+		//fmt.Println(pythonScript)
+		//fmt.Println(modelFilePath)
+		fmt.Println("Error running command:", stderr.String())
+		return
+	}
+
+	// 输出Python脚本处理后的结果
+	fmt.Println("Output from Python script:")
+	fmt.Println(stdoutBuf.String())
+	//fmt.Println(string(output))
+	file, err := os.Open("D:\\GitHubProject\\tendermint_work\\mempool\\v0\\weight.txt")
+	if err != nil {
+		fmt.Println("Error opening file:", err)
+		return
+	}
+	defer file.Close()
+	scanner := bufio.NewScanner(file)
+	index := 0
+	for scanner.Scan() {
+		line := scanner.Text()
+		num, err := strconv.ParseFloat(line, 64)
+		if err != nil {
+			panic(err)
+		}
+		mem.workspace[index].weight = int64(math.Ceil(num))
+		index++
+	}
+}
+func (mem *CListMempool) CountWeight() int64 {
+	var weight int64
+	for _, tx := range mem.workspace {
+		weight += tx.weight
+	}
+	return weight
+}
+func SortMempoolTxsByWeight(mempoolTxs []*mempoolTx) { // 按权重由大到小排列
+	sort.Slice(mempoolTxs, func(i int, j int) bool {
+		return mempoolTxs[i].weight > mempoolTxs[j].weight
+	})
+}
+func SortMempoolTxsByWeightAsc(mempoolTxs []txp.TxNode) { // 按权重由小到大排列
+	sort.Slice(mempoolTxs, func(i int, j int) bool {
+		return mempoolTxs[i].(*mempoolTx).weight < mempoolTxs[j].(*mempoolTx).weight
+	})
+}
+func (mem *CListMempool) DivideGraph(totalWeight int64, n int64) (map[int64][]int64, map[int64]int64) {
+	threshold := totalWeight / n
+	fmt.Println(threshold)
+	SortMempoolTxsByWeight(mem.workspace)      // 按权值从大到小排列
+	componentMap := make(map[int64][]int64, n) // 图分成n个部分
+	weightMap := make(map[int64]int64, n)
+	visited := make(map[int64]bool, len(mem.workspace))
+	var curTx *mempoolTx
+	var i int64
+	for i = 0; i < n; i++ {
+		fmt.Println(i)
+		for _, tx := range mem.workspace {
+			if !visited[tx.ID()] {
+				componentMap[i] = append(componentMap[i], tx.ID())
+				weightMap[i] += tx.weight
+				curTx = tx
+				visited[tx.ID()] = true
+				break
+			}
+		}
+		k := 0
+		neighborTx := make([]txp.TxNode, len(curTx.childTxs)+len(curTx.parentTxs))
+		copy(neighborTx[:len(curTx.childTxs)], curTx.childTxs)
+		copy(neighborTx[len(curTx.childTxs):], curTx.parentTxs)
+		SortMempoolTxsByWeightAsc(neighborTx)
+		//fmt.Println("length of neighborTx is", curTx)
+		//fmt.Println("length of neighborTx is", curTx.childTxs)
+		//fmt.Println("length of neighborTx is", curTx.parentTxs)
+		for weightMap[i] < threshold {
+			fmt.Println("weightMap[i]=", weightMap[i])
+			if k < len(neighborTx) {
+				//fmt.Println("length of k is", k)
+				if !visited[neighborTx[k].ID()] {
+					componentMap[i] = append(componentMap[i], neighborTx[k].ID())
+					weightMap[i] += neighborTx[k].(*mempoolTx).weight
+					visited[neighborTx[k].ID()] = true
+					curTx = neighborTx[k].(*mempoolTx)
+					biggerNeighbor := make([]txp.TxNode, len(neighborTx)+len(curTx.childTxs)+len(curTx.parentTxs))
+					copy(biggerNeighbor[:len(neighborTx)], neighborTx)
+					oldLength := len(neighborTx)
+					neighborTx = biggerNeighbor
+					copy(neighborTx[oldLength:oldLength+len(curTx.childTxs)], curTx.childTxs)
+					copy(neighborTx[oldLength+len(curTx.childTxs):oldLength+len(curTx.childTxs)+len(curTx.parentTxs)], curTx.parentTxs)
+				}
+				k++
+			} else {
+				if len(neighborTx) == 0 && k == 0 {
+					break
+				}
+				curTx = neighborTx[len(neighborTx)-1].(*mempoolTx)
+				k = 0
+				//fmt.Println("length of neighborTx is", curTx)
+				//fmt.Println("length of neighborTx is", curTx.childTxs)
+				//fmt.Println("length of neighborTx is", curTx.parentTxs)
+				//neighborTx = nil
+				neighborTx = make([]txp.TxNode, len(curTx.parentTxs)+len(curTx.childTxs))
+				copy(neighborTx[:len(curTx.childTxs)], curTx.childTxs)
+				copy(neighborTx[len(curTx.childTxs):], curTx.parentTxs)
+				//fmt.Println("length of neighborTx is", neighborTx)
+				SortMempoolTxsByWeightAsc(neighborTx)
+			}
+		}
+	}
+	return componentMap, weightMap
+}
+func (mmp *CListMempool) CountComponent() int64 {
+	var count int64
+	count = 0
+	visit := make(map[int64]bool)
+	componentMap := make(map[int64][]int64)
+	weightMap := make(map[int64]int64)
+	for _, tx := range mmp.workspace {
+		if !visit[tx.ID()] { // 开启一个新的连通分量
+			visit[tx.ID()] = true
+			component := []int64{}
+			component = append(component, tx.ID())
+			var weight int64
+			weight = mmp.workspace[tx.ID()].weight
+			count += 1
+			component, weight = mmp.dfs(tx, visit, component, weight)
+			componentMap[count] = component
+			weightMap[count] = weight
+		}
+	}
+	return count
+}
+func (mmp *CListMempool) dfs(tx txp.TxNode, visit map[int64]bool, component []int64, weight int64) ([]int64, int64) {
+	for _, t := range mmp.QueryNodeChild(tx) {
+		if !visit[t.ID()] {
+			visit[t.ID()] = true
+			component = append(component, t.ID())
+			weight += mmp.workspace[t.ID()].weight
+			component, weight = mmp.dfs(t, visit, component, weight)
+		}
+	}
+	for _, t := range mmp.QueryFather(tx) {
+		if !visit[t.ID()] {
+			visit[t.ID()] = true
+			component = append(component, t.ID())
+			weight += mmp.workspace[t.ID()].weight
+			component, weight = mmp.dfs(t, visit, component, weight)
+		}
+	}
+	return component, weight
 }
 
 //--------------------------------------------------------------------------------
@@ -984,7 +1194,9 @@ type mempoolTx struct {
 	outDegree int
 	parentTxs []txgpartition.TxNode
 	childTxs  []txgpartition.TxNode
-	isBlock   bool
+	//parentTxs []*mempoolTx
+	//childTxs  []*mempoolTx
+	isBlock bool
 	//diploma design
 	weight int64 // 权重
 }

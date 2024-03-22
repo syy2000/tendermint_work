@@ -111,4 +111,3 @@ func (mmp *CListMempool) midDep() int {
 	sort.Sort(toSort)
 	return toSort[toSort.Len()/2]
 }
-

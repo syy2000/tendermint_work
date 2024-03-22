@@ -1,8 +1,11 @@
 package kvstore
 
 import (
+	"bytes"
 	"fmt"
+	"math"
 	"math/rand"
+	"sort"
 	"testing"
 	"time"
 
@@ -11,6 +14,10 @@ import (
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/errors"
 	"github.com/syndtr/goleveldb/leveldb/opt"
+)
+
+const (
+	charSet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 )
 
 func genRandomKeys(keyNum int, keyLength int) ([][]byte, [][]byte) {
@@ -28,6 +35,25 @@ func genRandomKeys(keyNum int, keyLength int) ([][]byte, [][]byte) {
 	}
 	return key, value
 }
+func generateUniqueStrings(keyNum int) ([][]byte, [][]byte) {
+	visited := make(map[string]bool)
+	results := make([][]byte, 0, keyNum)
+	for len(results) < keyNum {
+		b := [4]byte{} // 只生成4个字节的key
+		for i := range b {
+			b[i] = charSet[rand.Intn(len(charSet))]
+		}
+		str := string(b[:])
+		if !visited[str] {
+			visited[str] = true
+			results = append(results, []byte(str))
+		}
+	}
+	sort.Slice(results, func(i, j int) bool {
+		return bytes.Compare(results[i], results[j]) < 0
+	})
+	return results, results
+}
 func TestLevelDB(t *testing.T) {
 
 	db, err := leveldb.OpenFile("testdb", &opt.Options{})
@@ -44,11 +70,18 @@ func TestLevelDB(t *testing.T) {
 	defer db.Close()
 
 	//start := time.Now()
-	keyLength := 16
-	keyNum := 1000000
-	//readTimes := 10000
-	writeTimes := 1000
-	key, value := genRandomKeys(keyNum, keyLength)
+	//keyLength := 16
+	keyNum := 10000
+	op := 10000
+	read_rate := 0.1
+	repeat_rate := 0.1
+	// repeatTimes := int(math.Ceil(float64(op) * repeat_rate))
+	tmp := rand.Intn(keyNum)
+	newValue := []byte("new_value")
+	//key, value := genRandomKeys(keyNum, keyLength)
+	key := make([][]byte, keyNum)
+	value := make([][]byte, keyNum)
+	key, value = generateUniqueStrings(keyNum)
 	for i := 0; i < keyNum; i++ {
 		err := db.Put(key[i], value[i], nil)
 		if err != nil {
@@ -56,88 +89,54 @@ func TestLevelDB(t *testing.T) {
 		}
 		//fmt.Printf("%q %q\n", key[i], value[i])
 	}
-	//fmt.Println("写入成功")
-	fmt.Println("Way of key generation: random")
+	fmt.Println("写入成功")
 	fmt.Printf("keyNum: %d\n", keyNum)
-	fmt.Printf("keyLength: %d\n", keyLength)
-	//fmt.Printf("readTimes: %d\n", readTimes)
-	fmt.Printf("writeTimes: %d\n", writeTimes)
-	// // 读入测试
-	// //多次读取随机生成的index,key[index]
-	// start := time.Now()
-	// for time := 0; time < 10; time++ {
-	// 	for i := 0; i < readTimes; i++ {
-	// 		_, err := db.Get(key[rand.Intn(keyNum)], nil)
-	// 		if err != nil {
-	// 			panic("读数据出错：" + err.Error())
-	// 		}
-	// 	}
-	// }
-	// elapsed := time.Since(start)
-	// fmt.Printf("Read randomly throughput(average): %.2f ops/sec\n", float64(readTimes*10)/(elapsed.Seconds()))
-	// //顺序读取
-	// start = time.Now()
-	// for time := 0; time < 10; time++ {
-	// 	for i := 0; i < readTimes; i++ {
-	// 		_, err := db.Get(key[i], nil)
-	// 		if err != nil {
-	// 			panic("读数据出错：" + err.Error())
-	// 		}
-	// 	}
-	// }
-	// elapsed = time.Since(start)
-	// fmt.Printf("Read sequently throughput(average): %.2f ops/sec\n", float64(readTimes*10)/elapsed.Seconds())
-	// // 重复读取
-	// tmp := rand.Intn(keyNum)
-	// start = time.Now()
-	// for time := 0; time < 10; time++ {
-	// 	for i := 0; i < readTimes; i++ {
-	// 		_, err := db.Get(key[tmp], nil)
-	// 		if err != nil {
-	// 			panic("读数据出错：" + err.Error())
-	// 		}
-	// 	}
-	// }
-	// elapsed = time.Since(start)
-	// fmt.Printf("Read repeatly throughput(average): %.2f ops/sec\n", float64(readTimes*10)/elapsed.Seconds())
 
-	// 写入测试
-	//多次写随机生成的index,key[index]
-	start := time.Now()
-	newValue := []byte("new_value")
-	for time := 0; time < 10; time++ {
-		for i := 0; i < writeTimes; i++ {
-			err := db.Put(key[rand.Intn(keyNum)], newValue, nil)
-			if err != nil {
-				panic("写数据出错：" + err.Error())
+	// 读入测试
+	// 多次读随机生成的键
+	for epoch := 1; epoch <= 10; epoch++ {
+		read_rate = float64(epoch) * 0.1
+		readTimes := int(math.Ceil(float64(op) * read_rate))
+		writeTimes := op - readTimes
+		for k := 1; k <= 10; k++ {
+			repeat_rate = float64(k) * 0.1
+			//重复读
+			readRepeat := int(math.Ceil(float64(readTimes) * repeat_rate))
+			writeRepeat := int(math.Ceil(float64(writeTimes) * repeat_rate))
+			start := time.Now()
+			for i := 0; i < readRepeat; i++ {
+				_, err := db.Get(key[tmp], nil)
+				if err != nil {
+					panic("读数据出错：" + err.Error())
+				}
 			}
-		}
-	}
-	elapsed := time.Since(start)
-	fmt.Printf("Write randomly throughput(average): %.2f ops/sec\n", float64(writeTimes*10)/(elapsed.Seconds()))
-	//顺序写入
-	start = time.Now()
-	for time := 0; time < 10; time++ {
-		for i := 0; i < writeTimes; i++ {
-			err := db.Put(key[i], newValue, nil)
-			if err != nil {
-				panic("写数据出错：" + err.Error())
+			//剩下的读
+			for i := readRepeat; i < readTimes; i++ {
+				_, err := db.Get(key[rand.Intn(keyNum)], nil)
+				if err != nil {
+					panic("读数据出错：" + err.Error())
+
+				}
 			}
-		}
-	}
-	elapsed = time.Since(start)
-	fmt.Printf("Write sequently throughput(average): %.2f ops/sec\n", float64(writeTimes*10)/elapsed.Seconds())
-	// 重复写入
-	tmp := rand.Intn(keyNum)
-	start = time.Now()
-	for time := 0; time < 10; time++ {
-		for i := 0; i < writeTimes; i++ {
-			err := db.Put(key[tmp], newValue, nil)
-			if err != nil {
-				panic("写数据出错：" + err.Error())
+			//重复写
+			for i := 0; i < writeRepeat; i++ {
+				err := db.Put(key[tmp], newValue, nil)
+				if err != nil {
+					panic("写数据出错：" + err.Error())
+				}
 			}
+			// 剩下的写
+			for i := writeRepeat; i < writeTimes; i++ {
+				err := db.Put(key[rand.Intn(keyNum)], newValue, nil)
+				if err != nil {
+					panic("写数据出错：" + err.Error())
+				}
+			}
+			elapsed := time.Since(start)
+			fmt.Printf("%d\n", elapsed.Nanoseconds())
 		}
+		//fmt.Printf("****************************************************************\n")
+		//fmt.Printf("%.2f\n", float64(writeTimes)/(elapsed.Seconds()))
 	}
-	elapsed = time.Since(start)
-	fmt.Printf("Write repeatly throughput(average): %.2f ops/sec\n", float64(writeTimes*10)/elapsed.Seconds())
+
 }
