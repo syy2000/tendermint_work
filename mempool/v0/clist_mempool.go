@@ -1071,70 +1071,168 @@ func SortMempoolTxsByWeightAsc(mempoolTxs []txp.TxNode) { // 按权重由小到�
 		return mempoolTxs[i].(*mempoolTx).weight < mempoolTxs[j].(*mempoolTx).weight
 	})
 }
-func (mem *CListMempool) DivideGraph(totalWeight int64, n int64) (map[int64][]int64, map[int64]int64) {
+func contains(txs []txp.TxNode, target txp.TxNode) bool {
+	for _, element := range txs {
+		if element == target {
+			return true
+		}
+	}
+	return false
+}
+func (mem *CListMempool) DivideGraph(totalWeight int64, n int64) (map[int64][]int64, map[int64]int64, map[int64]int64) {
 	threshold := totalWeight / n
 	fmt.Println(threshold)
-	SortMempoolTxsByWeight(mem.workspace)      // 按权值从大到小排列
+	//SortMempoolTxsByWeight(mem.workspace)      // 按权值从大到小排列
 	componentMap := make(map[int64][]int64, n) // 图分成n个部分
 	weightMap := make(map[int64]int64, n)
+	locate := make(map[int64]int64, len(mem.workspace))
 	visited := make(map[int64]bool, len(mem.workspace))
 	var curTx *mempoolTx
 	var i int64
+	neighborTx := []txp.TxNode{}
 	for i = 0; i < n; i++ {
-		fmt.Println(i)
-		for _, tx := range mem.workspace {
-			if !visited[tx.ID()] {
-				componentMap[i] = append(componentMap[i], tx.ID())
-				weightMap[i] += tx.weight
-				curTx = tx
-				visited[tx.ID()] = true
-				break
+		//fmt.Println(i)
+		if i == 0 || len(neighborTx) == 0 {
+			for _, tx := range mem.workspace {
+				if !visited[tx.ID()] {
+					componentMap[i] = append(componentMap[i], tx.ID())
+					weightMap[i] += tx.weight
+					locate[tx.ID()] = i
+					curTx = tx
+					visited[tx.ID()] = true
+					break
+				}
 			}
+			neighborTx = make([]txp.TxNode, len(curTx.childTxs)+len(curTx.parentTxs))
+			copy(neighborTx[:len(curTx.childTxs)], curTx.childTxs)
+			copy(neighborTx[len(curTx.childTxs):], curTx.parentTxs)
+			//SortMempoolTxsByWeightAsc(neighborTx)
 		}
 		k := 0
-		neighborTx := make([]txp.TxNode, len(curTx.childTxs)+len(curTx.parentTxs))
-		copy(neighborTx[:len(curTx.childTxs)], curTx.childTxs)
-		copy(neighborTx[len(curTx.childTxs):], curTx.parentTxs)
-		SortMempoolTxsByWeightAsc(neighborTx)
 		//fmt.Println("length of neighborTx is", curTx)
 		//fmt.Println("length of neighborTx is", curTx.childTxs)
 		//fmt.Println("length of neighborTx is", curTx.parentTxs)
 		for weightMap[i] < threshold {
-			fmt.Println("weightMap[i]=", weightMap[i])
+			//fmt.Println("weightMap[i]=", weightMap[i])
 			if k < len(neighborTx) {
 				//fmt.Println("length of k is", k)
 				if !visited[neighborTx[k].ID()] {
 					componentMap[i] = append(componentMap[i], neighborTx[k].ID())
 					weightMap[i] += neighborTx[k].(*mempoolTx).weight
+					locate[neighborTx[k].ID()] = i
 					visited[neighborTx[k].ID()] = true
 					curTx = neighborTx[k].(*mempoolTx)
-					biggerNeighbor := make([]txp.TxNode, len(neighborTx)+len(curTx.childTxs)+len(curTx.parentTxs))
+					//去重
+					children := []txp.TxNode{}
+					parents := []txp.TxNode{}
+					for _, tx := range curTx.childTxs {
+						if !contains(neighborTx, tx) {
+							children = append(children, tx)
+						}
+					}
+					for _, tx := range curTx.parentTxs {
+						if !contains(neighborTx, tx) {
+							parents = append(parents, tx)
+						}
+					}
+					biggerNeighbor := make([]txp.TxNode, len(neighborTx)+len(children)+len(parents))
 					copy(biggerNeighbor[:len(neighborTx)], neighborTx)
 					oldLength := len(neighborTx)
 					neighborTx = biggerNeighbor
-					copy(neighborTx[oldLength:oldLength+len(curTx.childTxs)], curTx.childTxs)
-					copy(neighborTx[oldLength+len(curTx.childTxs):oldLength+len(curTx.childTxs)+len(curTx.parentTxs)], curTx.parentTxs)
+					copy(neighborTx[oldLength:oldLength+len(children)], children)
+					copy(neighborTx[oldLength+len(children):], parents)
 				}
 				k++
 			} else {
-				if len(neighborTx) == 0 && k == 0 {
-					break
-				}
-				curTx = neighborTx[len(neighborTx)-1].(*mempoolTx)
-				k = 0
-				//fmt.Println("length of neighborTx is", curTx)
-				//fmt.Println("length of neighborTx is", curTx.childTxs)
-				//fmt.Println("length of neighborTx is", curTx.parentTxs)
-				//neighborTx = nil
-				neighborTx = make([]txp.TxNode, len(curTx.parentTxs)+len(curTx.childTxs))
-				copy(neighborTx[:len(curTx.childTxs)], curTx.childTxs)
-				copy(neighborTx[len(curTx.childTxs):], curTx.parentTxs)
-				//fmt.Println("length of neighborTx is", neighborTx)
-				SortMempoolTxsByWeightAsc(neighborTx)
+				break
 			}
 		}
+		if k < len(neighborTx) {
+			neighborTx = neighborTx[k:]
+		}
 	}
-	return componentMap, weightMap
+	return componentMap, weightMap, locate
+}
+func (mem *CListMempool) DivideGraph2(totalWeight int64, n int64) (map[int64][]int64, map[int64]int64, map[int64]int64) {
+	threshold := totalWeight / n
+	fmt.Println(threshold)
+	//SortMempoolTxsByWeight(mem.workspace)      // 按权值从大到小排列
+	componentMap := make(map[int64][]int64, n) // 图分成n个部分
+	weightMap := make(map[int64]int64, n)
+	locate := make(map[int64]int64, len(mem.workspace))
+	visited := make(map[int64]bool, len(mem.workspace))
+	var curTx *mempoolTx
+	var i int64
+	neighborTx := []txp.TxNode{}
+	for i = 0; i < n; i++ {
+		//fmt.Println(i)
+		if i == 0 || len(neighborTx) == 0 {
+			for _, tx := range mem.workspace {
+				if !visited[tx.ID()] {
+					componentMap[i] = append(componentMap[i], tx.ID())
+					weightMap[i] += tx.weight
+					locate[tx.ID()] = i
+					curTx = tx
+					visited[tx.ID()] = true
+					break
+				}
+			}
+			neighborTx = make([]txp.TxNode, len(curTx.childTxs)+len(curTx.parentTxs))
+			copy(neighborTx[:len(curTx.childTxs)], curTx.childTxs)
+			copy(neighborTx[len(curTx.childTxs):], curTx.parentTxs)
+			//SortMempoolTxsByWeightAsc(neighborTx)
+		}
+		k := 0
+		//fmt.Println("length of neighborTx is", curTx)
+		//fmt.Println("length of neighborTx is", curTx.childTxs)
+		//fmt.Println("length of neighborTx is", curTx.parentTxs)
+		for k < len(neighborTx) {
+			//fmt.Println("weightMap[i]=", weightMap[i])
+			if weightMap[i] < threshold {
+				//fmt.Println("length of k is", k)
+				if !visited[neighborTx[k].ID()] {
+					componentMap[i] = append(componentMap[i], neighborTx[k].ID())
+					weightMap[i] += neighborTx[k].(*mempoolTx).weight
+					locate[neighborTx[k].ID()] = i
+					visited[neighborTx[k].ID()] = true
+					curTx = neighborTx[k].(*mempoolTx)
+					//去重
+					children := []txp.TxNode{}
+					parents := []txp.TxNode{}
+					for _, tx := range curTx.childTxs {
+						if !contains(neighborTx, tx) {
+							children = append(children, tx)
+						}
+					}
+					for _, tx := range curTx.parentTxs {
+						if !contains(neighborTx, tx) {
+							parents = append(parents, tx)
+						}
+					}
+					biggerNeighbor := make([]txp.TxNode, len(neighborTx)+len(children)+len(parents))
+					copy(biggerNeighbor[:len(neighborTx)], neighborTx)
+					oldLength := len(neighborTx)
+					neighborTx = biggerNeighbor
+					copy(neighborTx[oldLength:oldLength+len(children)], children)
+					copy(neighborTx[oldLength+len(children):], parents)
+				}
+				k++
+			} else {
+				//break
+				if !visited[neighborTx[k].ID()] {
+					componentMap[i] = append(componentMap[i], neighborTx[k].ID())
+					weightMap[i] += neighborTx[k].(*mempoolTx).weight
+					locate[neighborTx[k].ID()] = i
+					visited[neighborTx[k].ID()] = true
+				}
+				k++
+			}
+		}
+		//if k < len(neighborTx) {
+		neighborTx = neighborTx[k:]
+		//}
+	}
+	return componentMap, weightMap, locate
 }
 func (mmp *CListMempool) CountComponent() int64 {
 	var count int64
@@ -1175,6 +1273,29 @@ func (mmp *CListMempool) dfs(tx txp.TxNode, visit map[int64]bool, component []in
 		}
 	}
 	return component, weight
+}
+
+func (mem *CListMempool) SeparateGraph(locate map[int64]int64) {
+	for _, tx := range mem.workspace {
+		parents := tx.parentTxs
+		children := tx.childTxs
+		newParents := []txp.TxNode{}
+		newChildren := []txp.TxNode{}
+		for index := 0; index < len(parents); index++ {
+			parent := parents[index]
+			if locate[parent.ID()] == locate[tx.ID()] {
+				newParents = append(newParents, parent)
+			}
+		}
+		tx.parentTxs = newParents
+		for index := 0; index < len(children); index++ {
+			child := children[index]
+			if locate[child.ID()] == locate[tx.ID()] {
+				newChildren = append(newChildren, child)
+			}
+		}
+		tx.childTxs = newChildren
+	}
 }
 
 //--------------------------------------------------------------------------------

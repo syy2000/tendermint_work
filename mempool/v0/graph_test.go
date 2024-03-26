@@ -89,17 +89,21 @@ func TestMain(t *testing.T) {
 			// }
 			n := 5
 			count = mem.CountComponent() //数数mempool里面几个连通分量
+			fmt.Println(count)
 			totalWeight := mem.countWeight()
-			componentMap, weightMap := mem.DivideGraph(totalWeight, int64(n))
-			fmt.Println(totalWeight)
+			componentMap, weightMap, locate := mem.DivideGraph(totalWeight, int64(n))
+			mem.SeparateGraph(locate) // 按照每个连通分量的划分情况更新每个结点的childTxs和parentTxs
+			//fmt.Println(totalWeight)
 			for i := 0; i < 5; i++ {
-				fmt.Println(len(componentMap[int64(i)]))
-				fmt.Println(weightMap[int64(i)])
+				fmt.Printf("length of componentMap %d is %d\n", i, len(componentMap[int64(i)]))
+				fmt.Printf("weight is %d\n", weightMap[int64(i)])
 			}
+			count = mem.CountComponent()
+			fmt.Println(count)
 			//fmt.Println(count)
 			//mem.ExecuteConcurrently(accountMap)
-			Sequential_total_time += mem.ExecuteSequentially(accountMap)
-			Concurrent_total_time += mem.ExecuteConcurrently(accountMap)
+			//Sequential_total_time += mem.ExecuteSequentially(accountMap)
+			//Concurrent_total_time += mem.ExecuteConcurrently(accountMap)
 			//Sequential_total_time += mem.ExecuteSequentially(accountMap)
 			//_, outNodeSets := mem.BalanceReapBlocks(componentMap, weightMap, 20)
 			// for _, txs := range outNodeSets {
